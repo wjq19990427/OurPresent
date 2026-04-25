@@ -1,0 +1,16 @@
+# 数据库（含密码哈希和私人记录）
+data/
+
+# 上传的媒体文件
+Assets/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 系统
+.DS_Store
+Thumbs.db
