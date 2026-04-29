@@ -4,6 +4,59 @@
 
 ---
 
+## [v2.0.0] - 2026-04-30
+
+### 重构（无新功能）
+
+**代码目录结构拆分**：将原有 `app.py` + `db.py` + `auth.py` 三文件架构，按职责拆分为以下模块：
+
+```
+core/
+  config.py          # 路径常量、TEXT_EXTS、TOKEN_EXPIRE_HOURS、FIELD_SCHEMA
+  state_machine.py   # tick()、load_db_with_tick()
+  agent_skills.py    # Phase 2 LLM 接口占位
+
+utils/
+  validators.py      # _is_text_session()、validate_session()
+  file_processor.py  # write_files()、video_thumbnail()、pil_to_png_bytes()
+
+backend/
+  db_manager.py      # JSON 读写、User/Couple CRUD、登录 Token 管理
+  session_manager.py # Session 生命周期、评论、可见性控制、数据销毁、解绑协议
+  auth_manager.py    # 注册/登录/绑定业务校验（AuthError、CoupleError）
+
+frontend/
+  components.py      # 会话工具、显示辅助、字段渲染、卡片、详情区、评论区
+  pages/
+    tab_upload.py    # Tab 1 — 记录舱
+    tab_pending.py   # Tab 2 — 灵感墙
+    tab_final.py     # Tab 3 — 已归档
+    tab_shared.py    # Tab 4 — 情侣空间
+    tab_account.py   # Tab 5 — 账户设置
+
+main.py              # 入口：_init_state()、render_auth_page()、main()
+```
+
+**变更细节**
+
+- 所有路径常量和 `FIELD_SCHEMA` 集中到 `core/config.py`，消除跨模块重复定义
+- `_is_text_session` / `validate_session` 移至 `utils/validators.py`，可独立单元测试
+- `_write_files` 重命名为 `write_files`（公开函数），与视频缩略图工具同移至 `utils/file_processor.py`
+- `initiate_uncouple` / `agree_uncouple` / `destroy_couple_data` 从 `db.py` 移至 `backend/session_manager.py`，与 Session 生命周期管理统一
+- `tick` / `load_db_with_tick` 单独提取为 `core/state_machine.py`，职责更清晰
+- 原 `app.py` 中的 Tab 渲染函数各自独立为 `frontend/pages/tab_*.py`
+- 入口由 `app.py` 改为 `main.py`，启动命令更新为 `python -m streamlit run main.py`
+- 旧的 `app.py`、`db.py`、`auth.py` 保留（向后兼容），后续可删除
+
+**依赖层次（无循环导入）**
+
+```
+core/config → utils → backend/db_manager → backend/session_manager
+→ backend/auth_manager → core/state_machine → frontend → main.py
+```
+
+---
+
 ## [v1.2.0] - 2026-04-24
 
 ### 新增
