@@ -50,7 +50,6 @@ pip install streamlit opencv-python Pillow -i https://pypi.tuna.tsinghua.edu.cn/
 **启动应用**
 
 ```bash
-cd D:\OurPresent
 python -m streamlit run main.py
 ```
 
@@ -80,12 +79,8 @@ python -m streamlit run main.py
 ## 项目结构
 
 ```
-D:\OurPresent\
+OurPresent/
 ├── main.py                        # 应用入口
-├── app.py                         # 旧版入口（保留，可删除）
-├── db.py                          # 旧版数据层（保留，可删除）
-├── auth.py                        # 旧版鉴权层（保留，可删除）
-│
 ├── core/                          # 核心配置与跨层逻辑
 │   ├── config.py                  # 路径常量、FIELD_SCHEMA、TEXT_EXTS
 │   ├── state_machine.py           # tick()、load_db_with_tick()

@@ -143,7 +143,7 @@ def render_account_tab(db: dict) -> None:
                 st.download_button(
                     label=f"下载 ZIP（共 {len(export_files)} 个文件）",
                     data=buf,
-                    file_name=f"projects_export_{user['user_id']}.zip",
+                    file_name=f"ourpresent_export_{user['user_id']}.zip",
                     mime="application/zip",
                 )
 

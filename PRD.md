@@ -108,18 +108,18 @@
 
 ```
 ┌─────────────────────────────────────────┐
-│              前端（Streamlit）            │  ← app.py
+│              前端（Streamlit）            │  ← frontend/
 ├─────────────────────────────────────────┤
-│              鉴权层（Auth）               │  ← auth.py
+│              鉴权层（Auth）               │  ← backend/auth_manager.py
 ├─────────────────────────────────────────┤
-│              数据层（DB）                 │  ← db.py
+│              数据层（DB）                 │  ← backend/db_manager.py
 ├───────────────────┬─────────────────────┤
 │   结构化存储       │    向量存储（预留）    │
 │  data/db.json     │   ChromaDB / Pinecone │
 └───────────────────┴─────────────────────┘
 ```
 
-**设计原则**：`db.py` 不感知 Streamlit，`auth.py` 不直接操作 `session_state`，三层完全解耦，后期前后端分离时 `db.py` 可直接复用。
+**设计原则**：`backend/db_manager.py` 不感知 Streamlit，`backend/auth_manager.py` 不直接操作 `session_state`，三层完全解耦，后期前后端分离时后端模块可直接复用。
 
 ### 4.2 阶段规划
 
@@ -339,7 +339,7 @@
 
 - 三层模块完全解耦，替换任意层不影响其他层
 - `FIELD_SCHEMA` 驱动 UI 渲染，新增字段无需修改其他代码
-- `db.py` 可直接复用为后端 API 的数据访问层
+- `backend/db_manager.py` 可直接复用为后端 API 的数据访问层
 
 ---
 

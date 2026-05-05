@@ -4,6 +4,16 @@
 
 ---
 
+## [v2.0.1] - 2026-05-05
+
+### 清理
+
+- 移除重构前遗留的 `app.py`、`db.py`、`auth.py`，统一以 `main.py` 作为 Streamlit 入口
+- 统一界面和占位配置命名为 OurPresent
+- 更新 README / PRD 中的项目结构与模块引用，避免新旧架构说明混杂
+
+---
+
 ## [v2.0.0] - 2026-04-30
 
 ### 重构（无新功能）
@@ -46,7 +56,7 @@ main.py              # 入口：_init_state()、render_auth_page()、main()
 - `tick` / `load_db_with_tick` 单独提取为 `core/state_machine.py`，职责更清晰
 - 原 `app.py` 中的 Tab 渲染函数各自独立为 `frontend/pages/tab_*.py`
 - 入口由 `app.py` 改为 `main.py`，启动命令更新为 `python -m streamlit run main.py`
-- 旧的 `app.py`、`db.py`、`auth.py` 保留（向后兼容），后续可删除
+- 旧的 `app.py`、`db.py`、`auth.py` 已移除，避免新旧入口并存造成维护混乱
 
 **依赖层次（无循环导入）**
 
@@ -99,7 +109,7 @@ core/config → utils → backend/db_manager → backend/session_manager
 
 ### 新增（首个可运行版本）
 
-**架构重构（基于 MyPresent v2.1.0 演进）**
+**架构重构（基于早期单人记录 Demo 演进）**
 
 - 从单人单文件架构重构为三层模块化架构：
   - `db.py`：数据层，负责所有磁盘 I/O 和状态机推进
@@ -161,7 +171,7 @@ core/config → utils → backend/db_manager → backend/session_manager
 - `pending_db.json` 迁移为 `data/db.json`，顶层结构从数组变为对象
 - `FIELD_SCHEMA` 中 `description` 的 `required` 字段从 `True`（仅文字必填）改为对所有 source_type 均必填；纯文字记录通过 `skip_keys` 机制绕过 UI 渲染，不破坏 Schema 定义
 - Session `comments` 条目新增 `author` 字段（`user_id`）
-- 文件存储路径 `Assets/` 目录结构不变，兼容 MyPresent 原有文件
+- 文件存储路径 `Assets/` 目录结构不变，兼容早期 Demo 原有文件
 
 ### 已知限制
 

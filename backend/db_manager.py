@@ -32,9 +32,12 @@ def _parse_dt(s: str) -> Optional[datetime]:
         return None
 
 
-def _hash_password(password: str) -> str:
-    salt = "projects_salt_v1"
+def _hash_password_with_salt(password: str, salt: str) -> str:
     return hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
+
+
+def _hash_password(password: str) -> str:
+    return _hash_password_with_salt(password, "ourpresent_salt_v1")
 
 
 # ── 数据库读写 ────────────────────────────────────────────────────────────
@@ -105,7 +108,11 @@ def get_user_by_id(user_id: str) -> Optional[dict]:
 
 
 def verify_password(user: dict, password: str) -> bool:
-    return user["password_hash"] == _hash_password(password)
+    stored = user["password_hash"]
+    return stored in {
+        _hash_password(password),
+        _hash_password_with_salt(password, "projects_salt_v1"),
+    }
 
 
 def _update_user(user_id: str, fields: dict) -> None:

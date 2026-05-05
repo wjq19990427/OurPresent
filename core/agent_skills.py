@@ -1,6 +1,6 @@
 """
 第二阶段 AI 智能体接口预留（Phase 2 占位）。
-当前均为未实现存根，配置 MYPRESENT_API_KEY 后接入 LLM。
+当前均为未实现存根，配置 OURPRESENT_API_KEY 后接入 LLM。
 """
 
 from __future__ import annotations

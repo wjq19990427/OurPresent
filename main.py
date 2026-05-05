@@ -1,5 +1,5 @@
 """
-WePresentApp — 入口文件
+OurPresent — 入口文件
 启动：python -m streamlit run main.py
 """
 
@@ -7,13 +7,10 @@ from __future__ import annotations
 
 import streamlit as st
 
-from backend.db_manager import (
-    ensure_dirs, get_user_by_id, validate_auth_token, revoke_auth_token,
-    get_couple_for_user,
-)
+from backend.db_manager import ensure_dirs, get_user_by_id, validate_auth_token, get_couple_for_user
 from backend.auth_manager import AuthError, register, login, is_frozen
 from core.state_machine import load_db_with_tick
-from frontend.components import _current_user, _uid, _partner_id
+from frontend.components import _current_user, _partner_id
 from frontend.pages.tab_upload import render_upload_tab
 from frontend.pages.tab_pending import render_pending_tab
 from frontend.pages.tab_final import render_archived_tab
@@ -24,7 +21,7 @@ from frontend.pages.tab_account import render_account_tab
 # 页面配置（必须是第一个 Streamlit 调用）
 # ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="WePresent",
+    page_title="OurPresent",
     page_icon="💑",
     layout="wide",
 )
@@ -63,7 +60,7 @@ def _init_state() -> None:
 def render_auth_page() -> None:
     from backend.db_manager import create_auth_token
 
-    st.title("💑 WePresent")
+    st.title("💑 OurPresent")
     st.caption("情侣专属的情感记录空间")
     st.divider()
 
@@ -104,7 +101,7 @@ def render_auth_page() -> None:
 
     with col_right:
         st.markdown("""
-### 关于 WePresent
+### 关于 OurPresent
 
 > 在保护个人绝对隐私的前提下，通过"延时共享"沉淀情感。
 
@@ -132,7 +129,7 @@ def main() -> None:
 
     col_title, col_user = st.columns([5, 1])
     with col_title:
-        st.markdown("## 💑 WePresent")
+        st.markdown("## 💑 OurPresent")
     with col_user:
         couple = get_couple_for_user(user["user_id"])
         if couple and couple.get("couple_status") == "active":
