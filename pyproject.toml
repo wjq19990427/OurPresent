@@ -1,0 +1,42 @@
+[project]
+name = "ourpresent"
+version = "0.1.0"
+description = "A local Streamlit demo for private couple memory sharing."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "opencv-python>=4,<5",
+    "pillow>=9",
+    "streamlit>=1.28",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8,<9",
+    "ruff>=0.11,<1",
+]
+
+[tool.uv]
+package = false
+default-groups = ["dev"]
+
+[[tool.uv.index]]
+name = "tsinghua"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "B",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

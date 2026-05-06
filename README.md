@@ -41,16 +41,25 @@
 
 ## 快速开始
 
-**安装依赖**（国内镜像）
+**安装依赖**
 
 ```bash
-pip install streamlit opencv-python Pillow -i https://pypi.tuna.tsinghua.edu.cn/simple
+uv sync 
 ```
+
+项目已在 `pyproject.toml` 中预置 `uv` 国内镜像配置，默认使用清华源解析依赖。
 
 **启动应用**
 
 ```bash
-python -m streamlit run main.py
+uv run streamlit run main.py
+```
+
+**常用开发命令**
+
+```bash
+uv run ruff check .
+uv run pytest
 ```
 
 浏览器访问 `http://localhost:8511`，内网其他设备访问 `http://<本机IP>:8511`。
@@ -68,6 +77,7 @@ python -m streamlit run main.py
 | 项目 | 要求 |
 |------|------|
 | Python | 3.9+ |
+| uv | 0.10+ |
 | Streamlit | 1.28+（需支持 `use_container_width`） |
 | opencv-python | 4.x（视频缩略图，可选） |
 | Pillow | 9.x+（图片处理，可选） |
