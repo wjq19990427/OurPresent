@@ -11,6 +11,11 @@ __pycache__/
 .venv/
 venv/
 
+# Python packaging, lint, and test output
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
 # 系统
 .DS_Store
 Thumbs.db
