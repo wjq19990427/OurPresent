@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from backend.application.sessions.destruction import destroy_couple_data
+from backend.application.sessions.destruction import destroy_couple_data_in_db
 from backend.infrastructure.database.db import load_db, now_str, parse_dt, save_db
 
 
@@ -24,7 +24,7 @@ def tick(db: dict) -> bool:
         if couple.get("couple_status") == "frozen" and couple.get("freeze_ends_at"):
             ends = parse_dt(couple["freeze_ends_at"])
             if ends and now >= ends:
-                destroy_couple_data(couple["couple_id"])
+                destroy_couple_data_in_db(db, couple["couple_id"])
                 changed = True
 
     before = len(db.get("auth_tokens", []))
