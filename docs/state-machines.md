@@ -12,7 +12,7 @@
   ▼
 [pending_unlock]
   │
-  │ state_machine.tick() 检查：
+  │ application.maintenance.tick() 检查：
   │ now() - upload_time ≥ 90 天
   ▼
 [shared] ──▶ 伴侣在「情侣空间」可见
@@ -28,12 +28,12 @@
 
 ## 分手协议详解
 
-### 单方发起（`auth_manager.start_uncouple`）
+### 单方发起（`backend.application.couples.start_uncouple`）
 
 ```text
 start_uncouple(user_id)
   │
-  └─ session_manager.initiate_uncouple(user_id)
+  └─ application.couples.uncoupling.start_uncouple()
        ├─ couple_status → "frozen"
        ├─ 记录 uncouple_initiated_by, uncouple_initiated_at
        └─ freeze_ends_at = now() + 90 天
@@ -41,15 +41,15 @@ start_uncouple(user_id)
 冻结期内：
   ├─ is_frozen() → True，全局只读
   ├─ 双方均可导出自己的文件（collect_export_files）
-  └─ state_machine.tick() 到期 → destroy_couple_data() → dissolved
+  └─ application.maintenance.tick() 到期 → destroy_couple_data() → dissolved
 ```
 
-### 双方同意（`auth_manager.confirm_uncouple`）
+### 双方同意（`backend.application.couples.confirm_uncouple`）
 
 ```text
 confirm_uncouple(user_id)
   │
-  └─ session_manager.agree_uncouple(user_id)
+  └─ application.couples.uncoupling.confirm_uncouple()
        └─ 立即调用 destroy_couple_data()
             ├─ 删除全部 sessions（按 couple_id 过滤）
             ├─ 删除对应磁盘文件和 .md 文件

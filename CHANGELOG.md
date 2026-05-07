@@ -4,6 +4,244 @@
 
 ---
 
+## [v2.1.0] - 2026-05-07
+
+### 重构（无新功能）
+
+核心目标：
+
+- 把 `application` 从“大文件堆功能”改成按业务能力分组
+- 把 `database` 从一个混合式 `db_manager.py` 改成仓储拆分
+- 为后续继续收紧类型边界，引入 `domain/models` dataclass
+- 让文档描述与当前真实代码结构重新一致
+
+### 当前目录结构（重构完成后）
+
+```text
+backend/
+├── api/
+├── application/
+│   ├── auth/
+│   ├── couples/
+│   ├── maintenance/
+│   └── sessions/
+├── config/
+├── domain/
+│   └── models/
+└── infrastructure/
+    ├── ai/
+    ├── database/
+    └── media/
+
+frontend/
+└── streamlit_app/
+    ├── components.py
+    └── pages/
+```
+
+### 新旧目录映射
+
+| 旧路径 | 新路径 |
+|--------|--------|
+| `backend/application/auth.py` | `backend/application/auth/commands.py` + `backend/application/auth/tokens.py` + `backend/application/auth/errors.py` |
+| `backend/application/sessions.py` | `backend/application/sessions/creation.py` + `editing.py` + `sharing.py` + `comments.py` + `export.py` + `destruction.py` + `files.py` + `markdown.py` |
+| `backend/application/validators.py` | `backend/application/sessions/validation.py` |
+| `backend/application/lifecycle.py` | `backend/application/maintenance/ticking.py` |
+| `backend/infrastructure/database/db_manager.py` | `backend/infrastructure/database/db.py` + `users_repo.py` + `couples_repo.py` + `sessions_repo.py` + `tokens_repo.py` |
+| `backend/infrastructure/utils/io.py` | `backend/application/sessions/files.py` + `backend/infrastructure/media/thumbnails.py` |
+| 无 | `backend/domain/models/user.py` |
+| 无 | `backend/domain/models/couple.py` |
+| 无 | `backend/domain/models/session.py` |
+| 无 | `backend/domain/models/auth_token.py` |
+
+### application 层职责重组
+
+`backend/application/` 不再按“技术名词大文件”组织，而改为按业务能力和用例边界拆分：
+
+- `auth/`
+  - `commands.py`：注册、登录
+  - `tokens.py`：持久化登录 token 的创建、恢复、撤销
+  - `errors.py`：`AuthError`
+- `couples/`
+  - `policies.py`：绑定、解绑前的业务规则校验
+  - `binding.py`：发送绑定请求、接受、拒绝
+  - `uncoupling.py`：冻结期解绑、双方同意销毁、冻结状态判断
+  - `errors.py`：`CoupleError`
+- `sessions/`
+  - `creation.py`：新建待处理 / 直接归档
+  - `editing.py`：字段编辑、待处理转归档
+  - `sharing.py`：可见性判断、申请共享、撤回共享
+  - `comments.py`：评论新增、删除
+  - `export.py`：导出文件收集
+  - `destruction.py`：按情侣关系销毁数据
+  - `validation.py`：纯文字记录判断、必填字段校验
+  - `files.py`：session 附件命名、写入、删除
+  - `markdown.py`：归档 Markdown 生成
+- `maintenance/`
+  - `ticking.py`：时间锁推进、冻结期到期销毁、过期 token 清理
+
+这次调整的核心是让每个文件只回答一个问题：
+
+- 怎么注册和登录
+- 怎么绑定和解绑
+- 怎么创建记录
+- 怎么编辑记录
+- 怎么推进状态
+
+这样后续继续扩展时，不会再把认证、session、情侣关系和系统维护逻辑重新缠在一起。
+
+### infrastructure/database 重组逻辑
+
+原来的 `db_manager.py` 同时承担了：
+
+- DB 文件读写
+- 时间工具
+- 密码哈希
+- User CRUD
+- Couple CRUD
+- Token CRUD
+
+这会让 application 层虽然表面拆了目录，实际上仍然都直接贴着一个“万能数据库文件”。
+
+本次改为：
+
+- `db.py`
+  - 只负责 `load_db()`、`save_db()`、`ensure_dirs()`、`now_str()`、`parse_dt()`
+- `users_repo.py`
+  - 用户创建、查找、密码校验、用户更新
+- `couples_repo.py`
+  - 情侣关系创建、查找、接受请求、拒绝请求、关系更新
+- `sessions_repo.py`
+  - session 的增、查、替换
+- `tokens_repo.py`
+  - 登录 token 的创建、校验、撤销
+
+这一步的意义是把“业务规则”和“持久化接口”拆开：
+
+- repository 只负责存取
+- application 负责规则和流程
+
+### domain/models 引入 dataclass
+
+新增：
+
+- `User`
+- `Couple`
+- `SessionRecord`
+- `AuthToken`
+
+这些 dataclass 解决两个问题：
+
+- 到处传裸 `dict`，字段边界太松
+- 上层调用不容易区分“这是用户”“这是情侣关系”“这是 token”
+
+当前每个模型都提供：
+
+- `from_dict(data)`
+- `to_dict()`
+
+这让 JSON 持久化结构和业务对象之间有了明确转换边界。
+
+本次落地情况：
+
+- 认证链路已切到 `User` / `AuthToken`
+- 情侣关系链路已切到 `Couple`
+- session 创建与 repository 已切到 `SessionRecord`
+- 前端渲染层仍保留部分 session dict 访问，降低本轮重构风险
+
+也就是说，这次是“先把类型边界建立起来”，而不是一步到位把整个 UI 层都改成完整对象流。
+
+### 文件与媒体职责调整
+
+原 `infrastructure/utils/io.py` 中同时混有：
+
+- session 附件写入
+- 文件名清洗
+- 视频缩略图
+- PIL 图片转换
+
+本次按职责拆开为：
+
+- `backend/application/sessions/files.py`
+  - `write_session_files()`
+  - `delete_session_files()`
+  - `_safe_filename()`
+- `backend/infrastructure/media/thumbnails.py`
+  - `video_thumbnail()`
+  - `pil_to_png_bytes()`
+
+调整原则：
+
+- 明显带有 session 语义的文件操作，上移到 `application/sessions`
+- 可复用的媒体预览能力，保留在 `infrastructure/media`
+
+### 前端边界同步
+
+本次同步调整了 `main.py` 与 `frontend/streamlit_app/` 的依赖方向：
+
+- 登录恢复改为通过 `application.auth.tokens`
+- 冻结期状态改为通过 `application.couples`
+- 用户、情侣关系查询改为通过拆分后的 repository
+- `components.py` 中的 `_current_user()`、`_couple()`、`_partner_id()` 开始使用 `User` / `Couple`
+
+这样前端依赖关系也更清晰：
+
+- 业务动作优先走 `application`
+- 查询型读取可以少量直连 repository
+- 页面层不再直接碰旧的“全功能 DB 管理器”
+
+### 模块化逻辑与依赖方向
+
+重构后的层次约束为：
+
+```text
+frontend/streamlit_app
+  -> backend/application
+  -> backend/config
+  -> backend/infrastructure（查询型依赖）
+
+backend/application
+  -> backend/infrastructure
+  -> backend/domain
+  -> backend/config
+
+backend/infrastructure
+  -> backend/domain
+  -> backend/config
+```
+
+其中各层职责明确为：
+
+- `config`
+  - 路径常量、字段 Schema、共享配置
+- `domain`
+  - 业务核心数据结构
+- `infrastructure`
+  - JSON 持久化、媒体处理、AI 适配
+- `application`
+  - 业务规则、流程编排、状态推进
+- `frontend/streamlit_app`
+  - 交互组织和界面呈现
+
+### 文档同步
+
+本次同步重写或更新了以下文档，使其描述与当前代码结构一致：
+
+- `README.md`
+- `docs/technical-report.md`
+- `docs/api-contracts.md`
+- `docs/data-model.md`
+- `docs/state-machines.md`
+- `docs/extension-guide.md`
+
+更新重点：
+
+- 改正旧路径和旧模块名
+- 补充 repository 拆分后的职责
+- 补充 `domain/models` 的类型边界说明
+
+---
+
 ## [v2.0.1] - 2026-05-05
 
 ### 清理

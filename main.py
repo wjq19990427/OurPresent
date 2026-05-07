@@ -7,15 +7,24 @@ from __future__ import annotations
 
 import streamlit as st
 
-from backend.db_manager import ensure_dirs, get_user_by_id, validate_auth_token, get_couple_for_user
-from backend.auth_manager import AuthError, register, login, is_frozen
-from core.state_machine import load_db_with_tick
-from frontend.components import _current_user, _partner_id
-from frontend.pages.tab_upload import render_upload_tab
-from frontend.pages.tab_pending import render_pending_tab
-from frontend.pages.tab_final import render_archived_tab
-from frontend.pages.tab_shared import render_shared_tab
-from frontend.pages.tab_account import render_account_tab
+from backend.application.auth import (
+    AuthError,
+    create_auth_token,
+    login,
+    register,
+    validate_auth_token,
+)
+from backend.application.couples import is_frozen
+from backend.application.maintenance import load_db_with_tick
+from backend.infrastructure.database.couples_repo import get_couple_for_user
+from backend.infrastructure.database.db import ensure_dirs
+from backend.infrastructure.database.users_repo import get_user_by_id
+from frontend.streamlit_app.components import _current_user, _partner_id
+from frontend.streamlit_app.pages.tab_account import render_account_tab
+from frontend.streamlit_app.pages.tab_final import render_archived_tab
+from frontend.streamlit_app.pages.tab_pending import render_pending_tab
+from frontend.streamlit_app.pages.tab_shared import render_shared_tab
+from frontend.streamlit_app.pages.tab_upload import render_upload_tab
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 页面配置（必须是第一个 Streamlit 调用）
@@ -32,12 +41,12 @@ st.set_page_config(
 # ─────────────────────────────────────────────────────────────────────────────
 def _init_state() -> None:
     defaults = {
-        "user":              None,
-        "upload_key":        0,
-        "pending_selected":  None,
+        "user": None,
+        "upload_key": 0,
+        "pending_selected": None,
         "archived_selected": None,
-        "shared_selected":   None,
-        "auth_tab":          "login",
+        "shared_selected": None,
+        "auth_tab": "login",
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -58,8 +67,6 @@ def _init_state() -> None:
 # 登录 / 注册页
 # ─────────────────────────────────────────────────────────────────────────────
 def render_auth_page() -> None:
-    from backend.db_manager import create_auth_token
-
     st.title("💑 OurPresent")
     st.caption("情侣专属的情感记录空间")
     st.divider()
@@ -72,12 +79,12 @@ def render_auth_page() -> None:
         with tabs[0]:
             with st.form("login_form"):
                 uname = st.text_input("用户名")
-                pwd   = st.text_input("密码", type="password")
+                pwd = st.text_input("密码", type="password")
                 if st.form_submit_button("登录", use_container_width=True, type="primary"):
                     try:
-                        user  = login(uname, pwd)
+                        user = login(uname, pwd)
                         st.session_state["user"] = user
-                        token = create_auth_token(user["user_id"])
+                        token = create_auth_token(user.user_id)
                         st.query_params["token"] = token
                         st.rerun()
                     except AuthError as e:
@@ -86,15 +93,15 @@ def render_auth_page() -> None:
         with tabs[1]:
             with st.form("register_form"):
                 uname2 = st.text_input("用户名", key="reg_uname")
-                pwd2   = st.text_input("密码（至少 6 位）", type="password", key="reg_pwd")
-                pwd2c  = st.text_input("确认密码", type="password", key="reg_pwd_c")
+                pwd2 = st.text_input("密码（至少 6 位）", type="password", key="reg_pwd")
+                pwd2c = st.text_input("确认密码", type="password", key="reg_pwd_c")
                 if st.form_submit_button("注册", use_container_width=True):
                     if pwd2 != pwd2c:
                         st.error("两次密码输入不一致")
                     else:
                         try:
                             user = register(uname2, pwd2)
-                            st.success(f"注册成功！你的用户 ID 是：`{user['user_id']}`")
+                            st.success(f"注册成功！你的用户 ID 是：`{user.user_id}`")
                             st.info("请把 ID 告诉你的伴侣，登录后在「账户」页互相绑定。")
                         except AuthError as e:
                             st.error(str(e))
@@ -131,25 +138,27 @@ def main() -> None:
     with col_title:
         st.markdown("## 💑 OurPresent")
     with col_user:
-        couple = get_couple_for_user(user["user_id"])
-        if couple and couple.get("couple_status") == "active":
+        couple = get_couple_for_user(user.user_id)
+        if couple and couple.couple_status == "active":
             partner_id = _partner_id()
-            partner    = get_user_by_id(partner_id) if partner_id else None
-            p_name     = partner["username"] if partner else "?"
-            st.caption(f"👤 {user['username']} · 💑 {p_name}")
+            partner = get_user_by_id(partner_id) if partner_id else None
+            p_name = partner.username if partner else "?"
+            st.caption(f"👤 {user.username} · 💑 {p_name}")
         else:
-            st.caption(f"👤 {user['username']}")
+            st.caption(f"👤 {user.username}")
 
-    if is_frozen(user["user_id"]):
+    if is_frozen(user.user_id):
         st.warning("❄️ 关系处于冻结期，当前为只读状态。")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🗂️ 记录舱",
-        "🖼️ 灵感墙",
-        "📚 已归档",
-        "💌 情侣空间",
-        "⚙️ 账户",
-    ])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        [
+            "🗂️ 记录舱",
+            "🖼️ 灵感墙",
+            "📚 已归档",
+            "💌 情侣空间",
+            "⚙️ 账户",
+        ]
+    )
 
     with tab1:
         render_upload_tab()

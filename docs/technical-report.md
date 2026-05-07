@@ -1,17 +1,8 @@
 # OurPresent 技术报告
 
-本文档面向开发者，描述当前 Alpha 版本的系统设计、模块边界与技术文档导航。
-
-更细的技术内容已拆分为独立文档：
-
-- API 约定与模块公开接口：[api-contracts.md](./api-contracts.md)
-- 数据模型：[data-model.md](./data-model.md)
-- 状态机与分手协议：[state-machines.md](./state-machines.md)
-- 扩展开发与第二阶段接口预留：[extension-guide.md](./extension-guide.md)
+本文档面向开发者，描述当前 Alpha 版本的系统结构、依赖方向与代码阅读入口。
 
 ## 1. 技术概览
-
-### 1.1 运行形态
 
 - 前端：Streamlit
 - 业务层：本地 Python 模块
@@ -19,78 +10,91 @@
 - 文件存储：`Assets/Pending/` 与 `Assets/Final/`
 - 依赖管理：`uv`
 
-### 1.2 目录结构
+## 2. 当前目录结构
 
 ```text
-OurPresent/
-├── main.py
-├── core/
-├── utils/
-├── backend/
-├── frontend/
-├── docs/
-├── data/
-├── Assets/
-├── .streamlit/
-├── pyproject.toml
-└── uv.lock
+backend/
+├── api/
+├── application/
+│   ├── auth/
+│   ├── couples/
+│   ├── maintenance/
+│   └── sessions/
+├── config/
+├── domain/
+│   └── models/
+└── infrastructure/
+    ├── ai/
+    ├── database/
+    └── media/
+
+frontend/
+└── streamlit_app/
 ```
 
-文档中的路径统一使用仓库相对路径，并以 `/` 表示层级分隔；实际代码中使用 `pathlib.Path` 处理路径，以保证 macOS、Linux 和 Windows 下都能正常开发。
-
-## 2. 架构设计
-
-### 2.1 分层关系
+## 3. 分层关系
 
 ```text
-core/config
+backend/config/settings
     ↓
-utils/validators    utils/file_processor
-    ↓                     ↓
-backend/db_manager ←──────┘
+backend/domain/models
     ↓
-backend/session_manager
+backend/infrastructure/database/*_repo
     ↓
-backend/auth_manager
+backend/application/*
     ↓
-core/state_machine
-    ↓
-frontend/components
-    ↓
-frontend/pages/*
+frontend/streamlit_app/*
     ↓
 main.py
 ```
 
-### 2.2 设计原则
+## 4. 模块职责
 
-| 层 | 职责 | 约束 |
-|----|------|------|
-| `core/` | 全局常量、跨层状态机 | 不依赖 Streamlit，不依赖 backend |
-| `utils/` | 纯函数工具 | 无任何内部模块依赖 |
-| `backend/` | 业务逻辑与数据访问 | 不依赖 Streamlit，可独立作为后端 API 层 |
-| `frontend/` | UI 渲染 | 只调用 backend 和 utils，不直接操作 db.json |
-| `main.py` | 组合入口 | 持有 `st.set_page_config`（必须首次调用） |
+### `backend/application/`
 
-## 3. 模块清单
+- `auth/`：注册、登录、token 恢复登录
+- `couples/`：绑定、解绑、冻结期规则
+- `sessions/`：创建、编辑、评论、共享、导出、销毁
+- `maintenance/`：`tick()` 和状态推进
 
-| 模块 | 说明 |
-|------|------|
-| `core/config.py` | 路径常量、FIELD_SCHEMA、TEXT_EXTS |
-| `core/state_machine.py` | `tick()`、`load_db_with_tick()` |
-| `core/agent_skills.py` | Phase 2 LLM 接口占位 |
-| `utils/validators.py` | `validate_session()`、`_is_text_session()` |
-| `utils/file_processor.py` | `write_files()`、`video_thumbnail()` |
-| `backend/db_manager.py` | JSON 读写、User/Couple CRUD、Token 管理 |
-| `backend/session_manager.py` | Session 生命周期、评论、可见性、数据销毁 |
-| `backend/auth_manager.py` | 注册/登录/绑定业务校验 |
-| `frontend/components.py` | 可复用 UI 组件 |
-| `frontend/pages/` | 五个主 Tab 页面 |
-| `main.py` | 应用入口 |
+### `backend/domain/models/`
 
-## 4. 阅读建议
+当前已引入以下 `dataclass`：
 
-- 想快速理解代码边界：先看本文，再看 [api-contracts.md](./api-contracts.md)
-- 想改数据库或字段结构：看 [data-model.md](./data-model.md)
-- 想改时间锁或解绑逻辑：看 [state-machines.md](./state-machines.md)
-- 想接 AI 或做 Beta 重构：看 [extension-guide.md](./extension-guide.md)
+- `User`
+- `Couple`
+- `SessionRecord`
+- `AuthToken`
+
+它们提供 `from_dict()` / `to_dict()`，用于在 JSON 记录与业务对象之间转换。
+
+### `backend/infrastructure/database/`
+
+- `db.py`：底层 JSON 读写、目录初始化、时间工具
+- `users_repo.py`：用户查询、创建、密码校验
+- `couples_repo.py`：情侣关系查询与状态更新
+- `sessions_repo.py`：session 持久化入口
+- `tokens_repo.py`：登录 token 持久化与校验
+
+### `backend/infrastructure/media/`
+
+- `thumbnails.py`：视频缩略图与图片字节转换
+
+### `frontend/streamlit_app/`
+
+- `components.py`：复用组件、辅助状态函数、详情渲染
+- `pages/`：五个主 Tab 的页面逻辑
+
+## 5. 当前设计取舍
+
+- 认证、情侣关系链路已经改为 dataclass + repository
+- session UI 仍以字典结构渲染，降低重构风险
+- `load_db_with_tick()` 仍对整份 JSON 做状态推进，因为它天然跨 `sessions / couples / auth_tokens`
+- `destroy_couple_data()` 仍是跨表操作，用例层直接协调多张表
+
+## 6. 推荐阅读顺序
+
+1. 先看 [README.md](../README.md) 了解项目目标
+2. 再看 [api-contracts.md](./api-contracts.md) 理解模块边界
+3. 需要改字段或存储结构时看 [data-model.md](./data-model.md)
+4. 需要改时间锁或解绑逻辑时看 [state-machines.md](./state-machines.md)

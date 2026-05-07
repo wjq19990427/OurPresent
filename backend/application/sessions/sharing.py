@@ -1,0 +1,34 @@
+"""Session sharing and visibility workflows."""
+
+from __future__ import annotations
+
+from backend.infrastructure.database.db import now_str
+from backend.infrastructure.database.sessions_repo import get_session_by_id, replace_session
+from backend.infrastructure.database.users_repo import get_user_by_id
+
+
+def can_view_session(session: dict, viewer_id: str) -> bool:
+    if session.get("user_id") == viewer_id:
+        return True
+    viewer = get_user_by_id(viewer_id)
+    if not viewer:
+        return False
+    if viewer.couple_id != session.get("couple_id"):
+        return False
+    return session.get("visibility") == "shared"
+
+
+def request_unlock(session_id: str) -> None:
+    session = get_session_by_id(session_id)
+    if session and session.visibility == "private":
+        session.visibility = "pending_unlock"
+        session.unlock_requested_at = now_str()
+        replace_session(session)
+
+
+def revoke_unlock(session_id: str) -> None:
+    session = get_session_by_id(session_id)
+    if session and session.visibility == "pending_unlock":
+        session.visibility = "private"
+        session.unlock_requested_at = None
+        replace_session(session)

@@ -6,7 +6,7 @@
 
 ### 1. 新增元数据字段
 
-在 `core/config.py` 的 `FIELD_SCHEMA` 末尾追加一个字典，无需修改其他代码：
+在 `backend/config/settings.py` 的 `FIELD_SCHEMA` 末尾追加一个字典，无需修改其他代码：
 
 ```python
 {
@@ -23,7 +23,7 @@
 
 ### 2. 新增支持的文件类型
 
-**a. 上传器允许新类型**（`frontend/pages/tab_upload.py`）：
+**a. 上传器允许新类型**（`frontend/streamlit_app/pages/tab_upload.py`）：
 
 ```python
 files = st.file_uploader(
@@ -33,17 +33,17 @@ files = st.file_uploader(
 )
 ```
 
-**b. 若新类型属于「文字型」，在 `core/config.py` 追加扩展名**：
+**b. 若新类型属于「文字型」，在 `backend/config/settings.py` 追加扩展名**：
 
 ```python
 TEXT_EXTS = {".txt", ".md", ".rst"}
 ```
 
-**c. 在 `frontend/components.py` 的 `_session_thumb` 和 `render_detail` 中添加预览分支**。
+**c. 在 `frontend/streamlit_app/components.py` 的 `_session_thumb` 和 `render_detail` 中添加预览分支**。
 
 ### 3. 替换密码哈希方案
 
-生产环境应替换 `backend/db_manager.py` 中的 `_hash_password()` 和 `verify_password()`：
+生产环境应替换 `backend/infrastructure/database/users_repo.py` 中的 `_hash_password()` 和 `verify_password()`：
 
 ```python
 import bcrypt
@@ -61,20 +61,20 @@ def verify_password(user: dict, password: str) -> bool:
 
 | 函数（`backend/`） | 当前行为 | 替换方向 |
 |--------------------|----------|----------|
-| `db_manager.load_db()` | 读本地 JSON | 查询关系数据库 / NoSQL |
-| `db_manager.save_db()` | 写本地 JSON | 写入数据库 |
-| `utils/file_processor.write_files()` | 写本地文件 | 上传到 OSS / S3 |
-| `session_manager.move_to_final()` | 本地 `shutil.move` | 远程 copy + delete |
+| `infrastructure.database.db.load_db()` | 读本地 JSON | 查询关系数据库 / NoSQL |
+| `infrastructure.database.db.save_db()` | 写本地 JSON | 写入数据库 |
+| `application.sessions.files.write_session_files()` | 写本地文件 | 上传到 OSS / S3 |
+| `application.sessions.move_to_final()` | 本地 `shutil.move` | 远程 copy + delete |
 
 ### 5. 前后端分离迁移
 
 当前 Streamlit 全栈架构的迁移路线：
 
-1. `backend/db_manager.py` + `backend/session_manager.py` + `backend/auth_manager.py` → 直接作为 FastAPI / Flask 数据访问和业务层
-2. `backend/auth_manager.py` → 封装为 `/register`、`/login`、`/couple/*` REST 接口
+1. `backend/infrastructure/database/*.py` + `backend/application/*` → 直接作为 FastAPI / Flask 的持久化与业务层
+2. `backend/application/auth` + `backend/application/couples` → 封装为 `/register`、`/login`、`/couple/*` REST 接口
 3. 权限检查（`can_view_session`）移至后端，前端不做权限判断
-4. `frontend/` → 替换为独立前端（React / Vue），通过 API 通信
-5. `core/state_machine.tick()` → 改为独立定时任务（cron / APScheduler）
+4. `frontend/streamlit_app/` → 替换为独立前端（React / Vue / Next.js），通过 API 通信
+5. `backend/application/maintenance/ticking.py` 中的 `tick()` → 改为独立定时任务（cron / APScheduler）
 
 ### 6. 添加独立定时任务（生产环境）
 
@@ -82,8 +82,8 @@ def verify_password(user: dict, password: str) -> bool:
 
 ```python
 # cron_worker.py（每小时执行一次）
-from backend.db_manager import load_db, save_db
-from core.state_machine import tick
+from backend.application.maintenance import tick
+from backend.infrastructure.database.db import load_db, save_db
 
 if __name__ == "__main__":
     db = load_db()
@@ -116,7 +116,7 @@ if __name__ == "__main__":
 **检索过滤规则（情感周报 Agent 必须遵守）**：
 
 ```python
-# core/agent_skills.py 已实现此过滤
+# backend/infrastructure/ai/agent_skills.py 已实现此过滤
 rag_chunks = [
     s for s in db["sessions"]
     if s.get("couple_id") == target_couple_id
