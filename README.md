@@ -26,6 +26,8 @@ uv sync
 uv run streamlit run main.py
 ```
 
+旧版本如果仍有 `data/db.json`，启动时会自动迁移到 `data/database.db`。
+
 常用开发命令：
 
 ```bash
@@ -75,6 +77,6 @@ OurPresent/
 
 - 阶段：Alpha 本地 Demo
 - 运行方式：Streamlit 前端壳 + Python 本地业务模块
-- 数据存储：`data/db.json` + `Assets/`
+- 数据存储：`data/database.db` + `Assets/`
 - 后端边界：`application / domain / infrastructure / config`
 - AI 能力：第二阶段预留，当前未正式接入

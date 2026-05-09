@@ -6,7 +6,7 @@
 
 - 前端：Streamlit
 - 业务层：本地 Python 模块
-- 数据层：`data/db.json`
+- 数据层：`data/database.db`（SQLite）
 - 文件存储：`Assets/Pending/` 与 `Assets/Final/`
 - 依赖管理：`uv`
 
@@ -66,11 +66,11 @@ main.py
 - `SessionRecord`
 - `AuthToken`
 
-它们提供 `from_dict()` / `to_dict()`，用于在 JSON 记录与业务对象之间转换。
+它们提供 `from_dict()` / `to_dict()`，用于在持久化字典记录与业务对象之间转换。
 
 ### `backend/infrastructure/database/`
 
-- `db.py`：底层 JSON 读写、目录初始化、时间工具
+- `db.py`：底层 SQLite 读写、旧 JSON 自动迁移、目录初始化、时间工具
 - `users_repo.py`：用户查询、创建、密码校验
 - `couples_repo.py`：情侣关系查询与状态更新
 - `sessions_repo.py`：session 持久化入口
@@ -89,7 +89,7 @@ main.py
 
 - 认证、情侣关系链路已经改为 dataclass + repository
 - session UI 仍以字典结构渲染，降低重构风险
-- `load_db_with_tick()` 仍对整份 JSON 做状态推进，因为它天然跨 `sessions / couples / auth_tokens`
+- `load_db_with_tick()` 仍对整份内存字典做状态推进，因为它天然跨 `sessions / couples / auth_tokens`
 - `destroy_couple_data()` 仍是跨表操作，用例层直接协调多张表
 
 ## 6. 推荐阅读顺序

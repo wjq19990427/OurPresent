@@ -4,6 +4,20 @@
 
 ---
 
+## [v2.2.0] - 2026-05-09
+
+### 存储升级
+
+- 底层持久化从 `data/db.json` 升级为 SQLite，默认数据库文件改为 `data/database.db`
+- 启动时如果检测到旧版 `data/db.json` 且 SQLite 为空库，会自动执行一次迁移导入
+- 保留现有 `load_db()` / `save_db()` 的上层调用方式，减少对业务层和 UI 层的影响
+
+### 文档与验证
+
+- 同步更新 README、技术文档和 `AGENTS.md`，说明新的数据库路径与迁移行为
+- 补充存储层测试，覆盖空库初始化、旧 JSON 迁移和 SQLite 持久化
+- 验证通过：`uv run ruff check backend main.py frontend`、`uv run pytest`
+
 ## [v2.1.0] - 2026-05-07
 
 ### 重构（无新功能）
@@ -38,21 +52,6 @@ frontend/
     ├── components.py
     └── pages/
 ```
-
-### 新旧目录映射
-
-| 旧路径 | 新路径 |
-|--------|--------|
-| `backend/application/auth.py` | `backend/application/auth/commands.py` + `backend/application/auth/tokens.py` + `backend/application/auth/errors.py` |
-| `backend/application/sessions.py` | `backend/application/sessions/creation.py` + `editing.py` + `sharing.py` + `comments.py` + `export.py` + `destruction.py` + `files.py` + `markdown.py` |
-| `backend/application/validators.py` | `backend/application/sessions/validation.py` |
-| `backend/application/lifecycle.py` | `backend/application/maintenance/ticking.py` |
-| `backend/infrastructure/database/db_manager.py` | `backend/infrastructure/database/db.py` + `users_repo.py` + `couples_repo.py` + `sessions_repo.py` + `tokens_repo.py` |
-| `backend/infrastructure/utils/io.py` | `backend/application/sessions/files.py` + `backend/infrastructure/media/thumbnails.py` |
-| 无 | `backend/domain/models/user.py` |
-| 无 | `backend/domain/models/couple.py` |
-| 无 | `backend/domain/models/session.py` |
-| 无 | `backend/domain/models/auth_token.py` |
 
 ### application 层职责重组
 
@@ -189,56 +188,6 @@ frontend/
 - 业务动作优先走 `application`
 - 查询型读取可以少量直连 repository
 - 页面层不再直接碰旧的“全功能 DB 管理器”
-
-### 模块化逻辑与依赖方向
-
-重构后的层次约束为：
-
-```text
-frontend/streamlit_app
-  -> backend/application
-  -> backend/config
-  -> backend/infrastructure（查询型依赖）
-
-backend/application
-  -> backend/infrastructure
-  -> backend/domain
-  -> backend/config
-
-backend/infrastructure
-  -> backend/domain
-  -> backend/config
-```
-
-其中各层职责明确为：
-
-- `config`
-  - 路径常量、字段 Schema、共享配置
-- `domain`
-  - 业务核心数据结构
-- `infrastructure`
-  - JSON 持久化、媒体处理、AI 适配
-- `application`
-  - 业务规则、流程编排、状态推进
-- `frontend/streamlit_app`
-  - 交互组织和界面呈现
-
-### 文档同步
-
-本次同步重写或更新了以下文档，使其描述与当前代码结构一致：
-
-- `README.md`
-- `docs/technical-report.md`
-- `docs/api-contracts.md`
-- `docs/data-model.md`
-- `docs/state-machines.md`
-- `docs/extension-guide.md`
-
-更新重点：
-
-- 改正旧路径和旧模块名
-- 补充 repository 拆分后的职责
-- 补充 `domain/models` 的类型边界说明
 
 ---
 

@@ -8,7 +8,8 @@ from pathlib import Path
 # Relative to the repository root.
 BASE_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = BASE_DIR / "data"
-DB_PATH = DATA_DIR / "db.json"
+DB_PATH = DATA_DIR / "database.db"
+LEGACY_DB_PATH = DATA_DIR / "db.json"
 ASSETS_DIR = BASE_DIR / "Assets"
 PENDING_DIR = ASSETS_DIR / "Pending"
 FINAL_DIR = ASSETS_DIR / "Final"

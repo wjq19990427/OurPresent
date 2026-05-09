@@ -11,7 +11,8 @@
 ```python
 BASE_DIR    = Path(... )          # 项目根目录
 DATA_DIR    = BASE_DIR / "data"
-DB_PATH     = DATA_DIR / "db.json"
+DB_PATH     = DATA_DIR / "database.db"
+LEGACY_DB_PATH = DATA_DIR / "db.json"
 ASSETS_DIR  = BASE_DIR / "Assets"
 PENDING_DIR = ASSETS_DIR / "Pending"
 FINAL_DIR   = ASSETS_DIR / "Final"
@@ -63,7 +64,7 @@ FIELD_SCHEMA: list[dict] = [
 
 ### `backend/domain/models/*.py` — 领域模型
 
-当前领域模型统一使用 `@dataclass(slots=True)`，并提供 `from_dict()` / `to_dict()`，用于在 JSON 持久化记录和业务对象之间转换。
+当前领域模型统一使用 `@dataclass(slots=True)`，并提供 `from_dict()` / `to_dict()`，用于在 SQLite 记录导出字典和业务对象之间转换。
 
 #### `backend/domain/models/user.py`
 
@@ -78,7 +79,7 @@ class User:
 
 - 表示一个注册用户
 - `couple_id is None` 表示尚未绑定
-- `from_dict()` 从 JSON 记录恢复对象
+- `from_dict()` 从持久化字典记录恢复对象
 - `to_dict()` 将对象转回可写入 DB 的字典
 
 #### `backend/domain/models/couple.py`
@@ -147,16 +148,16 @@ class AuthToken:
 
 ---
 
-### `backend/infrastructure/database/db.py` — 底层 JSON 读写
+### `backend/infrastructure/database/db.py` — 底层 SQLite 读写
 
-负责最底层的 DB 文件访问、目录初始化和通用时间工具。
+负责最底层的 SQLite 文件访问、旧 JSON 自动迁移、目录初始化和通用时间工具。
 
 ```python
 EMPTY_DB: dict = {"users": [], "couples": [], "sessions": [], "auth_tokens": []}
 ```
 
 - 空数据库结构常量
-- 用于文件缺失、损坏或旧格式兼容时的默认返回值
+- 用于空库、旧格式兼容或迁移失败时的默认返回值
 
 ```python
 def now_str() -> str
@@ -176,18 +177,19 @@ def parse_dt(value: str) -> datetime | None
 def load_db() -> dict
 ```
 
-- 读取 `data/db.json`
+- 读取 `data/database.db`
 - 返回顶层包含 `users`、`couples`、`sessions`、`auth_tokens` 的字典
-- 若文件不存在，返回 `EMPTY_DB`
-- 若读到旧版“纯 sessions 数组”结构，自动兼容为新顶层对象
-- 若 JSON 损坏或读文件失败，回退为空结构
+- 若 SQLite 文件不存在，会自动初始化 schema
+- 若发现旧版 `data/db.json`，会在空库时自动迁移
+- 若读到旧版“纯 sessions 数组”结构，自动兼容为新顶层对象后迁入 SQLite
+- 若旧 JSON 损坏或读文件失败，回退为空结构
 
 ```python
 def save_db(data: dict) -> None
 ```
 
-- 全量写回 `data/db.json`
-- 使用 UTF-8、中文不转义、缩进 2
+- 全量覆盖写回 `data/database.db`
+- 当前 alpha 仍保留整库字典式 `load_db()/save_db()` 编程模型，但底层介质已切换为 SQLite
 
 ```python
 def ensure_dirs() -> None

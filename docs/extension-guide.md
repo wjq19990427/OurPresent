@@ -61,8 +61,8 @@ def verify_password(user: dict, password: str) -> bool:
 
 | 函数（`backend/`） | 当前行为 | 替换方向 |
 |--------------------|----------|----------|
-| `infrastructure.database.db.load_db()` | 读本地 JSON | 查询关系数据库 / NoSQL |
-| `infrastructure.database.db.save_db()` | 写本地 JSON | 写入数据库 |
+| `infrastructure.database.db.load_db()` | 读本地 SQLite 并组装整库字典 | 查询关系数据库 / NoSQL |
+| `infrastructure.database.db.save_db()` | 全量写回本地 SQLite | 写入数据库 |
 | `application.sessions.files.write_session_files()` | 写本地文件 | 上传到 OSS / S3 |
 | `application.sessions.move_to_final()` | 本地 `shutil.move` | 远程 copy + delete |
 

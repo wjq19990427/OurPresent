@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 
 from backend.domain.models import AuthToken, Couple, SessionRecord, User
 from backend.infrastructure.database import db as db_module
@@ -45,32 +46,48 @@ def test_load_db_returns_empty_when_missing() -> None:
     assert db_module.load_db() == db_module.EMPTY_DB
 
 
-def test_load_db_supports_legacy_session_list_format() -> None:
-    db_module.DB_PATH.write_text(json.dumps([{"session_id": "sess_1"}]), encoding="utf-8")
+def test_load_db_migrates_legacy_session_list_format() -> None:
+    db_module.LEGACY_DB_PATH.write_text(json.dumps([{"session_id": "sess_1"}]), encoding="utf-8")
 
     db = db_module.load_db()
 
-    assert db == {
-        "users": [],
-        "couples": [],
-        "sessions": [{"session_id": "sess_1"}],
-        "auth_tokens": [],
-    }
+    assert db["users"] == []
+    assert db["couples"] == []
+    assert db["auth_tokens"] == []
+    assert len(db["sessions"]) == 1
+    assert db["sessions"][0]["session_id"] == "sess_1"
+    assert db["sessions"][0]["status"] == "pending"
+    assert db["sessions"][0]["visibility"] == "private"
+    assert db_module.DB_PATH.exists()
 
 
-def test_load_db_recovers_from_invalid_json_and_missing_auth_tokens() -> None:
-    db_module.DB_PATH.write_text("{bad json", encoding="utf-8")
+def test_load_db_recovers_from_invalid_legacy_json_and_missing_auth_tokens() -> None:
+    db_module.LEGACY_DB_PATH.write_text("{bad json", encoding="utf-8")
     assert db_module.load_db() == db_module.EMPTY_DB
 
-    db_module.DB_PATH.write_text(
+    db_module.LEGACY_DB_PATH.write_text(
         json.dumps({"users": [], "couples": [], "sessions": []}),
         encoding="utf-8",
     )
+    db_module.DB_PATH.unlink(missing_ok=True)
     assert db_module.load_db()["auth_tokens"] == []
 
 
 def test_save_db_and_ensure_dirs_persist_data() -> None:
-    payload = {"users": [{"user_id": "usr_1"}], "couples": [], "sessions": [], "auth_tokens": []}
+    payload = {
+        "users": [
+            {
+                "user_id": "usr_1",
+                "username": "alice",
+                "password_hash": "hash",
+                "couple_id": None,
+                "joined_at": "2026-05-01 10:00:00",
+            }
+        ],
+        "couples": [],
+        "sessions": [],
+        "auth_tokens": [],
+    }
 
     db_module.ensure_dirs()
     db_module.save_db(payload)
@@ -79,6 +96,14 @@ def test_save_db_and_ensure_dirs_persist_data() -> None:
     assert db_module.PENDING_DIR.exists()
     assert db_module.FINAL_DIR.exists()
     assert db_module.load_db() == payload
+    with sqlite3.connect(db_module.DB_PATH) as conn:
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+        }
+    assert {"users", "couples", "sessions", "auth_tokens"} <= tables
 
 
 def test_parse_dt_handles_blank_and_invalid_values() -> None:

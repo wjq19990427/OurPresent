@@ -1,6 +1,6 @@
 # 数据模型
 
-所有数据持久化仍落在 `data/db.json`，但代码层已经引入 `backend/domain/models` 中的 `dataclass` 作为一等模型。
+所有数据持久化当前落在 `data/database.db`（SQLite），代码层使用 `backend/domain/models` 中的 `dataclass` 作为一等模型。
 
 当前对应关系：
 
@@ -9,9 +9,9 @@
 - `sessions[]` ↔ `SessionRecord`
 - `auth_tokens[]` ↔ `AuthToken`
 
-Repository 通过 `from_dict()` / `to_dict()` 在 JSON 记录与模型之间转换。
+Repository 通过 `from_dict()` / `to_dict()` 在持久化字典记录与模型之间转换。
 
-所有数据存储于 `data/db.json`，顶层为对象，包含四张表。
+当前底层是 SQLite，但应用层仍以如下顶层对象结构在内存中读写，包含四类聚合数据。
 
 ```jsonc
 {
