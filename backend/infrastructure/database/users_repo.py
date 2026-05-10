@@ -2,19 +2,16 @@
 
 from __future__ import annotations
 
-import hashlib
 import uuid
+
+import bcrypt
 
 from backend.domain.models import User
 from backend.infrastructure.database.db import load_db, now_str, save_db
 
 
-def _hash_password_with_salt(password: str, salt: str) -> str:
-    return hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
-
-
 def _hash_password(password: str) -> str:
-    return _hash_password_with_salt(password, "ourpresent_salt_v1")
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def create_user(username: str, password: str) -> User:
@@ -48,11 +45,7 @@ def get_user_by_id(user_id: str) -> User | None:
 
 
 def verify_password(user: User, password: str) -> bool:
-    stored = user.password_hash
-    return stored in {
-        _hash_password(password),
-        _hash_password_with_salt(password, "projects_salt_v1"),
-    }
+    return bcrypt.checkpw(password.encode("utf-8"), user.password_hash.encode("utf-8"))
 
 
 def update_user(user_id: str, fields: dict) -> User | None:

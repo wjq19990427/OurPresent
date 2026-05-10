@@ -57,18 +57,11 @@ def ensure_dirs() -> None
 负责 `User` 的创建、查询、更新和密码校验。
 
 ```python
-def _hash_password_with_salt(password: str, salt: str) -> str
-```
-
-- 内部密码哈希函数
-- 使用 `sha256(salt + password)`
-
-```python
 def _hash_password(password: str) -> str
 ```
 
-- 使用项目当前默认盐值 `ourpresent_salt_v1`
-- 当前仅适合本地 demo，生产环境应替换为 `bcrypt` 或 `argon2`
+- 内部密码哈希函数
+- 使用 `bcrypt` 生成带独立盐和代价因子的字符串哈希
 
 ```python
 def create_user(username: str, password: str) -> User
@@ -99,7 +92,7 @@ def verify_password(user: User, password: str) -> bool
 ```
 
 - 校验输入密码是否匹配
-- 同时兼容当前盐值 `ourpresent_salt_v1` 和旧盐值 `projects_salt_v1`
+- 使用 `bcrypt.checkpw()` 校验，不兼容旧 SHA-256 哈希
 
 ```python
 def update_user(user_id: str, fields: dict) -> User | None

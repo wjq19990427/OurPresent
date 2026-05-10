@@ -14,12 +14,7 @@ from backend.application.auth import (
 )
 from backend.infrastructure.database import db as db_module
 from backend.infrastructure.database.tokens_repo import get_valid_auth_token
-from backend.infrastructure.database.users_repo import (
-    _hash_password_with_salt,
-    get_user_by_username,
-    update_user,
-    verify_password,
-)
+from backend.infrastructure.database.users_repo import get_user_by_username, verify_password
 
 
 def test_register_and_login_success() -> None:
@@ -27,6 +22,7 @@ def test_register_and_login_success() -> None:
 
     assert user.username == "alice"
     assert get_user_by_username("alice") is not None
+    assert not _is_sha256_hex(user.password_hash)
     assert login(" alice ", "secret123").user_id == user.user_id
 
 
@@ -58,14 +54,17 @@ def test_login_errors() -> None:
         login("alice", "wrongpass")
 
 
-def test_verify_password_accepts_current_and_legacy_hash() -> None:
+def test_password_hash_uses_bcrypt_with_independent_salts() -> None:
     user = register("alice", "secret123")
-    assert verify_password(user, "secret123")
+    other = register("bob", "secret123")
 
-    legacy_hash = _hash_password_with_salt("secret123", "projects_salt_v1")
-    legacy_user = update_user(user.user_id, {"password_hash": legacy_hash})
-    assert legacy_user is not None
-    assert verify_password(legacy_user, "secret123")
+    assert user.password_hash != other.password_hash
+    assert user.password_hash.startswith("$2")
+    assert other.password_hash.startswith("$2")
+    assert not _is_sha256_hex(user.password_hash)
+    assert not _is_sha256_hex(other.password_hash)
+    assert verify_password(user, "secret123")
+    assert not verify_password(user, "wrongpass")
 
 
 def test_auth_token_lifecycle() -> None:
@@ -93,3 +92,7 @@ def test_expired_token_is_not_valid() -> None:
 
     assert get_valid_auth_token("expired") is None
     assert validate_auth_token("expired") is None
+
+
+def _is_sha256_hex(value: str) -> bool:
+    return len(value) == 64 and all(char in "0123456789abcdef" for char in value)
