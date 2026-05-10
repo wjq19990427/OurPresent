@@ -23,7 +23,7 @@ def add_comment(session_id: str, author_id: str, text: str) -> None:
     )
     replace_session(session)
     if session.status == "final":
-        write_session_markdown(session.to_dict())
+        write_session_markdown(session)
 
 
 def delete_comment(session_id: str, comment_id: str) -> None:
@@ -33,4 +33,4 @@ def delete_comment(session_id: str, comment_id: str) -> None:
     session.comments = [comment for comment in session.comments if comment["id"] != comment_id]
     replace_session(session)
     if session.status == "final":
-        write_session_markdown(session.to_dict())
+        write_session_markdown(session)

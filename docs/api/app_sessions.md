@@ -3,7 +3,7 @@
 该模块提供 Session 数据完整性和文字型记录判断逻辑，由 session 用例层和前端组件共同使用。
 
 ```python
-def is_text_session(session: dict) -> bool
+def is_text_session(session: SessionRecord) -> bool
 ```
 
 - 判断是否为纯文字记录
@@ -13,7 +13,7 @@ def is_text_session(session: dict) -> bool
 - 返回 `True` 时，`description` 字段在 UI 中可由内容自动填充
 
 ```python
-def validate_session(session: dict) -> list[str]
+def validate_session(session: SessionRecord) -> list[str]
 ```
 
 - 检查 session 是否缺失必填字段
@@ -24,7 +24,7 @@ def validate_session(session: dict) -> list[str]
 示例：
 
 ```python
-validate_session({"content_time": "", "description": "内容", "feeling": "快乐"})
+validate_session(session_record)
 # -> ["创建时间"]
 ```
 
@@ -65,7 +65,7 @@ def write_session_files(
 ```
 
 ```python
-def delete_session_files(session: dict) -> None
+def delete_session_files(session: SessionRecord) -> None
 ```
 
 - 删除某条 session 关联的所有物理文件
@@ -76,7 +76,7 @@ def delete_session_files(session: dict) -> None
 ### `backend/application/sessions/markdown.py` — 归档 Markdown 生成
 
 ```python
-def write_session_markdown(session: dict) -> None
+def write_session_markdown(session: SessionRecord) -> None
 ```
 
 - 根据 session 内容生成归档 Markdown
@@ -165,7 +165,7 @@ def update_session_fields(session_id: str, new_values: dict) -> None
 ### `backend/application/sessions/sharing.py` — 共享与可见性控制
 
 ```python
-def can_view_session(session: dict, viewer_id: str) -> bool
+def can_view_session(session: SessionRecord, viewer_id: str) -> bool
 ```
 
 - 可见性规则：

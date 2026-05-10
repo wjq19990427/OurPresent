@@ -44,7 +44,7 @@ def save_session_pending(
         if key in {field["key"] for field in FIELD_SCHEMA}:
             setattr(session, key, value)
     session.files = write_session_files(session.session_id, file_data_list, PENDING_DIR)
-    session.is_complete = not validate_session(session.to_dict())
+    session.is_complete = not validate_session(session)
     add_session(session)
 
 
@@ -65,4 +65,4 @@ def save_session_final(
     session.files = write_session_files(session.session_id, file_data_list, FINAL_DIR)
     session.is_complete = True
     add_session(session)
-    write_session_markdown(session.to_dict())
+    write_session_markdown(session)

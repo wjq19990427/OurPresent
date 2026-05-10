@@ -30,7 +30,7 @@ def move_to_final(session_id: str) -> None:
     session.archive_time = now_str()
     session.is_complete = True
     replace_session(session)
-    write_session_markdown(session.to_dict())
+    write_session_markdown(session)
 
 
 def update_session_fields(session_id: str, new_values: dict) -> None:
@@ -38,20 +38,20 @@ def update_session_fields(session_id: str, new_values: dict) -> None:
     if not session:
         return
     valid_keys = {field["key"] for field in FIELD_SCHEMA}
-    session_dict = session.to_dict()
     if session.status == "final":
         changes = {}
         for key, value in new_values.items():
-            if key in valid_keys and session_dict.get(key) != value:
-                if key == "description" and is_text_session(session_dict):
+            old_value = getattr(session, key, "")
+            if key in valid_keys and old_value != value:
+                if key == "description" and is_text_session(session):
                     continue
-                changes[key] = {"from": session_dict.get(key, ""), "to": value}
+                changes[key] = {"from": old_value, "to": value}
         if changes:
             session.edit_history.append({"edited_at": now_str(), "changes": changes})
     for key, value in new_values.items():
         if key in valid_keys:
             setattr(session, key, value)
-    session.is_complete = not validate_session(session.to_dict())
+    session.is_complete = not validate_session(session)
     replace_session(session)
     if session.status == "final":
-        write_session_markdown(session.to_dict())
+        write_session_markdown(session)

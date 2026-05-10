@@ -239,3 +239,17 @@ def list_sessions_for_user(user_id: str) -> list[SessionRecord]
 
 - 返回某个用户创建的全部 session
 - 当前实现基于 `list_sessions()` 过滤
+
+```python
+def list_sessions_for_couple(couple_id: str) -> list[SessionRecord]
+```
+
+- 返回某个情侣关系下的全部 session
+- 当前实现基于 `list_sessions()` 过滤
+
+```python
+def delete_sessions_for_couple(couple_id: str) -> None
+```
+
+- 删除某个情侣关系下的全部 session 记录
+- 仅删除 DB 记录，不负责删除磁盘文件

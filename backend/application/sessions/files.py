@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from backend.config.settings import FINAL_DIR
+from backend.domain.models import SessionRecord
 
 
 def _safe_filename(name: str) -> str:
@@ -35,10 +36,10 @@ def write_session_files(
     return result
 
 
-def delete_session_files(session: dict) -> None:
-    for file_record in session.get("files", []):
+def delete_session_files(session: SessionRecord) -> None:
+    for file_record in session.files:
         path = Path(file_record.get("path", ""))
         if path.exists():
             path.unlink(missing_ok=True)
-    md_path = FINAL_DIR / f"{session['session_id']}.md"
+    md_path = FINAL_DIR / f"{session.session_id}.md"
     md_path.unlink(missing_ok=True)

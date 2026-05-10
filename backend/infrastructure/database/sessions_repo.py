@@ -36,3 +36,17 @@ def replace_session(session: SessionRecord) -> None:
 
 def list_sessions_for_user(user_id: str) -> list[SessionRecord]:
     return [session for session in list_sessions() if session.user_id == user_id]
+
+
+def list_sessions_for_couple(couple_id: str) -> list[SessionRecord]:
+    return [session for session in list_sessions() if session.couple_id == couple_id]
+
+
+def delete_sessions_for_couple(couple_id: str) -> None:
+    db = load_db()
+    db["sessions"] = [
+        raw_session
+        for raw_session in db["sessions"]
+        if raw_session.get("couple_id") != couple_id
+    ]
+    save_db(db)

@@ -38,7 +38,7 @@ def _partner_id() -> Optional[str]
 #### 显示辅助
 
 ```python
-def _session_thumb(session: dict)
+def _session_thumb(session: SessionRecord)
 ```
 
 - 返回 `(缩略图, 文本标签)`
@@ -49,13 +49,13 @@ def _session_thumb(session: dict)
   - 无文件：回退到 `description` 预览
 
 ```python
-def _days_until_unlock(session: dict) -> int
+def _days_until_unlock(session: SessionRecord) -> int
 ```
 
 - 基于 `upload_time` 计算距离满 90 天还剩几天
 
 ```python
-def _visibility_badge(session: dict) -> str
+def _visibility_badge(session: SessionRecord) -> str
 ```
 
 - 返回可见性标签：
@@ -74,7 +74,7 @@ def _looks_like_date(value: str) -> bool
 ```python
 def render_field_inputs(
     prefix: str,
-    defaults: Optional[dict] = None,
+    defaults: Optional[SessionRecord] = None,
     skip_keys: Optional[set] = None,
 ) -> dict
 ```
@@ -88,13 +88,13 @@ def render_field_inputs(
 | 参数 | 说明 |
 |------|------|
 | `prefix` | widget key 前缀，需保证同页唯一 |
-| `defaults` | 默认值，常用于编辑态回填 |
+| `defaults` | 默认 session，常用于编辑态回填 |
 | `skip_keys` | 跳过渲染的字段集合 |
 
 #### 评论区
 
 ```python
-def render_comments(session: dict) -> None
+def render_comments(session: SessionRecord) -> None
 ```
 
 - 渲染评论列表
@@ -104,7 +104,7 @@ def render_comments(session: dict) -> None
 #### Session 卡片
 
 ```python
-def render_card(col, session: dict, state_key: str) -> None
+def render_card(col, session: SessionRecord, state_key: str) -> None
 ```
 
 - 在指定列容器中渲染 session 卡片
@@ -114,7 +114,7 @@ def render_card(col, session: dict, state_key: str) -> None
 #### Session 详情区
 
 ```python
-def render_detail(session: dict, mode: str, read_only: bool = False) -> None
+def render_detail(session: SessionRecord, mode: str, read_only: bool = False) -> None
 ```
 
 - 渲染详情、预览、编辑历史、编辑表单和评论区
@@ -155,7 +155,7 @@ def render_pending_tab(db: dict) -> None
 ```
 
 - Tab 2「🖼️ 灵感墙」
-- 展示当前用户所有 `status == "pending"` 的记录
+- 通过 `sessions_repo` 读取当前用户所有 `status == "pending"` 的 `SessionRecord`
 - 点击卡片后调用 `render_detail(..., mode="pending")`
 
 ```python
@@ -163,7 +163,7 @@ def render_archived_tab(db: dict) -> None
 ```
 
 - Tab 3「📚 已归档」
-- 展示当前用户所有 `status == "final"` 的记录
+- 通过 `sessions_repo` 读取当前用户所有 `status == "final"` 的 `SessionRecord`
 - 点击卡片后调用 `render_detail(..., mode="final")`
 
 ```python
@@ -171,7 +171,7 @@ def render_shared_tab(db: dict) -> None
 ```
 
 - Tab 4「💌 情侣空间」
-- 仅展示伴侣共享给自己的 `visibility == "shared"` 记录
+- 仅展示伴侣共享给自己的 `visibility == "shared"` 的 `SessionRecord`
 - 使用 `can_view_session()` 做二次权限校验
 - 全部只读查看
 

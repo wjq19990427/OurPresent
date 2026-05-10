@@ -18,18 +18,35 @@ from backend.infrastructure.database.sessions_repo import (
 from backend.infrastructure.database.users_repo import create_user, update_user
 
 
+def _session_record(**fields: object) -> SessionRecord:
+    defaults = {
+        "session_id": "session_test",
+        "user_id": "usr_1",
+        "couple_id": None,
+        "status": "pending",
+        "visibility": "private",
+        "unlock_requested_at": None,
+        "shared_at": None,
+        "upload_time": "2026-05-01 10:00:00",
+        "archive_time": "",
+        "is_complete": False,
+    }
+    defaults.update(fields)
+    return SessionRecord(**defaults)
+
+
 def test_validation_helpers_detect_text_sessions_and_required_fields() -> None:
-    assert is_text_session({"source_type": "text", "files": []}) is True
-    assert is_text_session({"files": [{"filename": "memo.txt"}]}) is True
-    assert is_text_session({"files": [{"filename": "photo.jpg"}]}) is False
+    assert is_text_session(_session_record(source_type="text", files=[])) is True
+    assert is_text_session(_session_record(files=[{"filename": "memo.txt"}])) is True
+    assert is_text_session(_session_record(files=[{"filename": "photo.jpg"}])) is False
 
     missing = validate_session(
-        {"source_type": "file", "content_time": "", "description": "", "feeling": ""}
+        _session_record(source_type="file", content_time="", description="", feeling="")
     )
     assert missing == ["创建时间", "描述", "感受"]
 
     text_missing = validate_session(
-        {"source_type": "text", "content_time": "", "description": "", "feeling": ""}
+        _session_record(source_type="text", content_time="", description="", feeling="")
     )
     assert text_missing == ["创建时间", "感受"]
 
@@ -228,9 +245,9 @@ def test_sharing_and_view_permissions() -> None:
 
     stored = get_session_by_id("session_5")
     assert stored is not None
-    assert can_view_session(stored.to_dict(), owner.user_id) is True
-    assert can_view_session(stored.to_dict(), partner.user_id) is False
-    assert can_view_session(stored.to_dict(), outsider.user_id) is False
+    assert can_view_session(stored, owner.user_id) is True
+    assert can_view_session(stored, partner.user_id) is False
+    assert can_view_session(stored, outsider.user_id) is False
 
     request_unlock("session_5")
     stored = get_session_by_id("session_5")
@@ -246,7 +263,7 @@ def test_sharing_and_view_permissions() -> None:
 
     stored.visibility = "shared"
     replace_session(stored)
-    assert can_view_session(stored.to_dict(), partner.user_id) is True
+    assert can_view_session(stored, partner.user_id) is True
 
 
 def test_collect_export_files_returns_only_existing_paths(tmp_path: Path) -> None:

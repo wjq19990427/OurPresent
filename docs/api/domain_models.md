@@ -69,6 +69,7 @@ class SessionRecord:
 - `status`：`pending` 或 `final`
 - `visibility`：`private` / `pending_unlock` / `shared`
 - `files`、`comments`、`edit_history` 仍保持字典列表，便于兼容现有 UI
+- `from_dict()` / `to_dict()` 仅由 `sessions_repo` 在持久化边界使用，application 与 frontend 层以 `SessionRecord` 传递
 
 #### `backend/domain/models/auth_token.py`
 

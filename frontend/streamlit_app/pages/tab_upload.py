@@ -11,7 +11,33 @@ import streamlit as st
 
 from backend.application.sessions import save_session_final, save_session_pending, validate_session
 from backend.config.settings import TEXT_EXTS
+from backend.domain.models import SessionRecord
 from frontend.streamlit_app.components import _couple, _is_frozen, _uid, render_field_inputs
+
+
+def _validation_record(
+    user_id: str,
+    couple_id: str | None,
+    source_type: str,
+    field_values: dict,
+) -> SessionRecord:
+    session = SessionRecord(
+        session_id="upload_preview",
+        user_id=user_id,
+        couple_id=couple_id,
+        status="pending",
+        visibility="private",
+        unlock_requested_at=None,
+        shared_at=None,
+        upload_time="",
+        archive_time="",
+        is_complete=False,
+        source_type=source_type,
+    )
+    for key, value in field_values.items():
+        if hasattr(session, key):
+            setattr(session, key, value)
+    return session
 
 
 def render_upload_tab() -> None:
@@ -75,7 +101,9 @@ def render_upload_tab() -> None:
                 f"📝 描述已自动填充：{preview}{suffix}"
             )
 
-        defaults = {"description": auto_description}
+        defaults = _validation_record(
+            _uid(), couple_id, source_type, {"description": auto_description}
+        )
         field_vals = render_field_inputs("upload", defaults=defaults, skip_keys=skip)
         if auto_description:
             field_vals["description"] = auto_description
@@ -83,7 +111,8 @@ def render_upload_tab() -> None:
         col1, col2 = st.columns(2)
         with col1:
             if st.form_submit_button("✅ 完成并归档", use_container_width=True, type="primary"):
-                missing = validate_session(field_vals)
+                draft = _validation_record(_uid(), couple_id, source_type, field_vals)
+                missing = validate_session(draft)
                 if missing:
                     st.error(f"请先填写：{', '.join(missing)}")
                 else:
@@ -95,7 +124,8 @@ def render_upload_tab() -> None:
             if st.form_submit_button("📦 暂存到待处理", use_container_width=True):
                 save_session_pending(_uid(), couple_id, file_data_list, source_type, field_vals)
                 st.session_state["upload_key"] += 1
-                missing = validate_session(field_vals)
+                draft = _validation_record(_uid(), couple_id, source_type, field_vals)
+                missing = validate_session(draft)
                 if missing:
                     st.warning(f"已暂存，待补充：{', '.join(missing)}")
                 else:

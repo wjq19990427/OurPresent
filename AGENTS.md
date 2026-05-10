@@ -25,9 +25,11 @@
 - **Bug 自行诊断**：任务卡只给症状和预期行为时，自己找根因、设计修复，不等架构师给具体答案
 - **最小改动**：只完成任务卡列出的事，不做计划外重构、抽象、风格调整、防御性扩展
 - **工作区隔离**：在独立 git worktree 工作，branch 命名 `codex/task-N`
+- **Worktree 创建失败处理**：若因沙箱无法写 `.git` 元数据导致失败，使用同一条 `git worktree add -b codex/task-N ...` 提权重试；不要改分支命名或手动修改 `.git`
 - **禁止 push main**：只提交到自己的 branch，merge 由架构师或用户执行
 - **L2 先行**：改任何模块前必读对应 `docs/api/{layer}.md`
 - **同步文档**：若改动了公开签名或副作用语义，必须同步更新对应 L2 契约文档
+- **Review 返工**：优先收敛到契约形态，不用 `isinstance(..., dict)` 兼容层掩盖边界；清理/销毁类流程保持单一路径，避免跨模块调用私有 helper
 
 # BLOCKED 协议
 
@@ -54,7 +56,7 @@ uv run ruff check .
 
 不做的事：
 - 不 push 到 main/master
-- 不修改 `CLAUDE.md` / `AGENTS.md`
+- 不修改 `CLAUDE.md` / `AGENTS.md`，除非用户明确要求更新工作规范
 - 不维护 `docs/STATUS.md`（由架构师负责）
 - 不自行决定扩大或缩小任务范围
 - 不在 try/except 中吞掉对架构决策有影响的异常
@@ -64,7 +66,7 @@ uv run ruff check .
 ```
 <type>(<scope>): <一句话描述> · 关联 #N
 
-Co-Authored-By: <model-name> <noreply@anthropic.com>
+Co-Authored-By: <model-name> <noreply@openai.com>
 ```
 
 type: `feat` / `fix` / `refactor` / `docs` / `chore`

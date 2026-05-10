@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from backend.application.sessions import can_view_session
+from backend.infrastructure.database.sessions_repo import list_sessions
 from backend.infrastructure.database.users_repo import get_user_by_id
 from frontend.streamlit_app.components import _couple, _partner_id, _uid, render_card, render_detail
 
@@ -19,12 +20,12 @@ def render_shared_tab(db: dict) -> None:
     shared_sessions = sorted(
         [
             session
-            for session in db["sessions"]
-            if session.get("user_id") == partner_id
-            and session.get("visibility") == "shared"
+            for session in list_sessions()
+            if session.user_id == partner_id
+            and session.visibility == "shared"
             and can_view_session(session, _uid())
         ],
-        key=lambda session: session.get("shared_at", ""),
+        key=lambda session: session.shared_at or "",
         reverse=True,
     )
 
@@ -40,7 +41,7 @@ def render_shared_tab(db: dict) -> None:
 
     if selected_id:
         session = next(
-            (item for item in shared_sessions if item["session_id"] == selected_id), None
+            (item for item in shared_sessions if item.session_id == selected_id), None
         )
         if session:
             st.divider()
