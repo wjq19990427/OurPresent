@@ -38,11 +38,13 @@ uv run pytest
 ## 文档导航
 
 - 产品需求文档：[docs/PRD.md](./docs/PRD.md)
-- 开发者技术报告：[docs/technical-report.md](./docs/technical-report.md)
-- API 与模块边界：[docs/api-contracts.md](./docs/api-contracts.md)
+- 架构索引（L1）：[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- 模块公开接口（L2 契约）：[docs/api/](./docs/api/)
 - 数据模型：[docs/data-model.md](./docs/data-model.md)
+- 状态机与分手协议：[docs/state-machines.md](./docs/state-machines.md)
 - 扩展指南：[docs/extension-guide.md](./docs/extension-guide.md)
 - 用户使用文档：[docs/user-guide.md](./docs/user-guide.md)
+- 项目状态快照：[docs/STATUS.md](./docs/STATUS.md)
 - 版本记录：[CHANGELOG.md](./CHANGELOG.md)
 
 ## 项目结构

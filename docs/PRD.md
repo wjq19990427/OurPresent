@@ -4,7 +4,7 @@
 **更新日期**：2026-05-06  
 **产品阶段**：Alpha（本地 Demo）
 
-本文档只描述产品目标、用户价值、功能需求与阶段规划。技术实现、模块拆解、数据结构和运行细节已迁移至 [docs/technical-report.md](./technical-report.md)。
+本文档只描述产品目标、用户价值、功能需求与阶段规划。技术实现、模块拆解、数据结构和运行细节见 [docs/ARCHITECTURE.md](./ARCHITECTURE.md)。
 
 ## 目录
 
