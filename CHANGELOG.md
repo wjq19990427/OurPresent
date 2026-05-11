@@ -6,11 +6,28 @@
 
 ## [Unreleased]
 
-- 收尾本地阶段技术债：session 子域公开签名全面 `dict` → `SessionRecord`，密码哈希从 SHA-256+固定盐切换到 bcrypt（独立盐 + 自适应代价因子）。
-- README 理念叙事整理：保留延时表达作为灵魂卖点，删除主题重复表述；“Present 三层含义”与「当前能力」拆为独立小节，各能力补一句价值描述。
-- 删除旧 JSON 库迁移过渡路径：`db.py` 不再嗅探 `data/db.json`，`LEGACY_DB_PATH` 常量移除，持久化单一锚定 SQLite。
-- 共享时间锁灵活化：固定 90 天废除，`SessionRecord.unlock_at` 由用户在申请共享时选择（立即/1天/3天/1周/1月/90天/日历自定义），`tick()` 改为基于 `unlock_at` 判定。
-- pending_unlock 阶段流动性增强：申请共享后仍可追加文本内容、修改开放时间、立即解锁；UI 上调整时间与立即解锁均需勾选二次确认，避免时间锁形同虚设。
+## [v2.3.0] - 2026-05-11
+
+### 时间锁灵活化（核心）
+
+- 共享时间锁从固定 90 天改为用户自选：申请共享时可选立即 / 1 天 / 3 天 / 1 周 / 1 个月 / 90 天 / 日历自定义日期，默认 1 周
+- `SessionRecord` 新增 `unlock_at` 字段，`tick()` 基于 `unlock_at` 判定推进，`upload_time` 不再参与共享解锁计算
+- pending_unlock 阶段的流动性增强：申请共享后仍可追加文本内容（保留原文 + 「追加于 时间」分隔标记，不写编辑历史）、修改开放时间、立即解锁、撤回共享
+- UI 上「修改开放时间」与「立即解锁」必须勾选二次确认，明确告知会改变伴侣看见时刻，避免时间锁形同虚设
+- 「shared 时 unlock_at == shared_at」作为跨函数不变量统一固化（`request_unlock` 立即-分支、`unlock_now`、`reschedule_unlock` 三路径对齐）
+
+### 本地阶段收尾
+
+- session 子域类型边界贯穿到 UI：`application/sessions/*` 与 `frontend/streamlit_app/*` 公开签名全面 `dict` → `SessionRecord`，dict↔dataclass 转换严格收敛在 `sessions_repo` 持久化边界
+- 密码哈希从 SHA-256 + 固定盐切换到 bcrypt（独立盐 + 自适应代价因子），旧哈希兼容彻底删除
+- 删除旧 JSON 库迁移过渡路径：`db.py` 不再嗅探 `data/db.json`，`LEGACY_DB_PATH` 常量移除，持久化单一锚定 SQLite
+- 引入 `_migrate_db` + `_ensure_column` 轻量 ALTER TABLE 模式承载 schema 演进（alpha 阶段权宜，未来需清算）
+
+### 文档与叙事
+
+- README 理念叙事整理：保留延时表达作为灵魂卖点，删除主题重复表述；「Present 三层含义」与「当前能力」拆为独立小节，各能力补一句价值描述
+- L2 契约（`docs/api/*.md`）随每个任务同步更新；任务卡（`docs/tasks/task-1..5.md`）入库
+- 新增 `docs/STATUS.md` 项目状态快照，由架构师维护「最近完成 / 下一步 / 已知技术债」
 
 ## [v2.2.0] - 2026-05-09
 
