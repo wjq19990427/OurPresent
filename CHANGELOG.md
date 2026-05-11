@@ -9,6 +9,7 @@
 - 收尾本地阶段技术债：session 子域公开签名全面 `dict` → `SessionRecord`，密码哈希从 SHA-256+固定盐切换到 bcrypt（独立盐 + 自适应代价因子）。
 - README 理念叙事整理：保留延时表达作为灵魂卖点，删除主题重复表述；“Present 三层含义”与「当前能力」拆为独立小节，各能力补一句价值描述。
 - 删除旧 JSON 库迁移过渡路径：`db.py` 不再嗅探 `data/db.json`，`LEGACY_DB_PATH` 常量移除，持久化单一锚定 SQLite。
+- 共享时间锁灵活化：固定 90 天废除，`SessionRecord.unlock_at` 由用户在申请共享时选择（立即/1天/3天/1周/1月/90天/日历自定义），`tick()` 改为基于 `unlock_at` 判定。
 
 ## [v2.2.0] - 2026-05-09
 
