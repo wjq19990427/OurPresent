@@ -16,6 +16,7 @@ class Couple:
     uncouple_initiated_at: str | None
     both_agreed_uncouple: bool
     freeze_ends_at: str | None
+    weekly_report_interval_days: int = 7
 
     @classmethod
     def from_dict(cls, data: dict) -> "Couple":
@@ -29,6 +30,7 @@ class Couple:
             uncouple_initiated_at=data.get("uncouple_initiated_at"),
             both_agreed_uncouple=bool(data.get("both_agreed_uncouple", False)),
             freeze_ends_at=data.get("freeze_ends_at"),
+            weekly_report_interval_days=int(data.get("weekly_report_interval_days", 7)),
         )
 
     def to_dict(self) -> dict:

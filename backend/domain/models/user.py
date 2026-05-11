@@ -12,6 +12,7 @@ class User:
     password_hash: str
     couple_id: str | None
     joined_at: str
+    weekly_report_enabled: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> "User":
@@ -21,6 +22,7 @@ class User:
             password_hash=data["password_hash"],
             couple_id=data.get("couple_id"),
             joined_at=data["joined_at"],
+            weekly_report_enabled=bool(data.get("weekly_report_enabled", False)),
         )
 
     def to_dict(self) -> dict:

@@ -3,7 +3,7 @@
 负责最底层的 SQLite 文件访问、目录初始化和通用时间工具。
 
 ```python
-EMPTY_DB: dict = {"users": [], "couples": [], "sessions": [], "auth_tokens": []}
+EMPTY_DB: dict = {"users": [], "couples": [], "sessions": [], "auth_tokens": [], "reports": []}
 ```
 
 - 空数据库结构常量
@@ -28,8 +28,9 @@ def load_db() -> dict
 ```
 
 - 读取 `data/database.db`
-- 返回顶层包含 `users`、`couples`、`sessions`、`auth_tokens` 的字典
+- 返回顶层包含 `users`、`couples`、`sessions`、`auth_tokens`、`reports` 的字典
 - 若 SQLite 文件不存在，会自动初始化 schema
+- 若旧库缺少 `reports` 表或周报字段，会在启动迁移时补齐
 
 ```python
 def save_db(data: dict) -> None
@@ -52,6 +53,10 @@ def ensure_dirs() -> None
 ### `backend/infrastructure/database/users_repo.py` — 用户仓储
 
 负责 `User` 的创建、查询、更新和密码校验。
+
+`users` 表额外保存：
+
+- `weekly_report_enabled INTEGER NOT NULL DEFAULT 0`：当前用户是否开启情感周报服务
 
 ```python
 def _hash_password(password: str) -> str
@@ -104,6 +109,10 @@ def update_user(user_id: str, fields: dict) -> User | None
 ### `backend/infrastructure/database/couples_repo.py` — 情侣关系仓储
 
 负责 `Couple` 的创建、查询和状态更新。
+
+`couples` 表额外保存：
+
+- `weekly_report_interval_days INTEGER NOT NULL DEFAULT 7`：双方共享的情感周报间隔天数
 
 ```python
 def create_couple_request(from_user_id: str, to_user_id: str) -> Couple
@@ -249,3 +258,44 @@ def delete_sessions_for_couple(couple_id: str) -> None
 
 - 删除某个情侣关系下的全部 session 记录
 - 仅删除 DB 记录，不负责删除磁盘文件
+
+---
+
+### `backend/infrastructure/database/reports_repo.py` — 情感周报仓储
+
+负责 `Report` 的最小持久化操作。`reports` 表将周报四个模块以 JSON 字段保存，repository 负责在 dict 与 `Report` dataclass 之间转换。
+
+```python
+def create_report(report: Report) -> None
+```
+
+- 将新的 report 追加到 DB
+- 不做去重，默认调用方保证 `report_id` 唯一
+
+```python
+def get_report(report_id: str) -> Report | None
+```
+
+- 按 `report_id` 查找单条 report
+- 找到时返回 `Report`，未找到返回 `None`
+
+```python
+def list_reports_for_couple(couple_id: str) -> list[Report]
+```
+
+- 返回某个情侣关系下的全部 reports
+- 按 `generated_at` 倒序返回
+
+```python
+def update_report(report: Report) -> None
+```
+
+- 按 `report_id` 替换现有 report
+- 若没找到，不会新增
+
+```python
+def delete_reports_for_couple(couple_id: str) -> int
+```
+
+- 删除某个情侣关系下的全部 report 记录
+- 返回删除条数

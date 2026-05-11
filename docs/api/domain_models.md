@@ -11,10 +11,12 @@ class User:
     password_hash: str
     couple_id: str | None
     joined_at: str
+    weekly_report_enabled: bool
 ```
 
 - 表示一个注册用户
 - `couple_id is None` 表示尚未绑定
+- `weekly_report_enabled` 表示当前用户是否开启情感周报服务，旧数据默认 `False`
 - `from_dict()` 从持久化字典记录恢复对象
 - `to_dict()` 将对象转回可写入 DB 的字典
 
@@ -31,6 +33,7 @@ class Couple:
     uncouple_initiated_at: str | None
     both_agreed_uncouple: bool
     freeze_ends_at: str | None
+    weekly_report_interval_days: int
 ```
 
 - 表示一条情侣关系或绑定请求
@@ -40,6 +43,34 @@ class Couple:
   - `active`
   - `frozen`
   - `dissolved`
+- `weekly_report_interval_days` 是双方共享的情感周报间隔天数，默认 `7`
+
+#### `backend/domain/models/report.py`
+
+```python
+class Report:
+    report_id: str
+    couple_id: str
+    window_start: str
+    window_end: str
+    generated_at: str
+    model_version: str
+    footprint: dict
+    weather: dict
+    resonance: list[dict]
+    suspense: list[dict]
+    status: str
+    source_session_ids: list[str]
+```
+
+- 表示一份情感周报
+- `report_id` 命名规则为 `rpt_YYYYMMDD_<couple_id>`
+- `window_start` / `window_end` / `generated_at` 使用 `%Y-%m-%d %H:%M:%S` 字符串格式
+- `model_version` 由后续生成用例填入；未接入模型前允许为空串
+- `footprint` / `weather` / `resonance` / `suspense` 承载周报四个模块的结构化 JSON
+- `status` 当前约定为 `ready` / `failed` / `sparse`
+- `source_session_ids` 记录生成报告使用的 session id 列表，供审计使用
+- `from_dict()` / `to_dict()` 仅在持久化边界使用
 
 #### `backend/domain/models/session.py`
 

@@ -84,7 +84,7 @@ def confirm_uncouple(user_id: str) -> None
 - 双方同意立即解绑
 - 要求当前必须存在绑定关系
 - 通过后将 `both_agreed_uncouple = True`
-- 随后立即调用 `destroy_couple_data()`
+- 随后立即调用 `destroy_couple_data()`，销毁 sessions、reports 并解绑双方用户
 
 ```python
 def is_frozen(user_id: str) -> bool

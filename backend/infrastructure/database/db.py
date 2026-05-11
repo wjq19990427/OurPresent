@@ -10,7 +10,7 @@ from typing import Iterator
 
 from backend.config.settings import DATA_DIR, DB_PATH, FINAL_DIR, PENDING_DIR
 
-EMPTY_DB: dict = {"users": [], "couples": [], "sessions": [], "auth_tokens": []}
+EMPTY_DB: dict = {"users": [], "couples": [], "sessions": [], "auth_tokens": [], "reports": []}
 
 _SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     couple_id TEXT,
-    joined_at TEXT NOT NULL
+    joined_at TEXT NOT NULL,
+    weekly_report_enabled INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS couples (
@@ -33,7 +34,8 @@ CREATE TABLE IF NOT EXISTS couples (
     uncouple_initiated_by TEXT,
     uncouple_initiated_at TEXT,
     both_agreed_uncouple INTEGER NOT NULL DEFAULT 0,
-    freeze_ends_at TEXT
+    freeze_ends_at TEXT,
+    weekly_report_interval_days INTEGER NOT NULL DEFAULT 7
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -63,6 +65,21 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
     user_id TEXT NOT NULL,
     expires_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS reports (
+    report_id TEXT PRIMARY KEY,
+    couple_id TEXT NOT NULL,
+    window_start TEXT NOT NULL,
+    window_end TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    model_version TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL,
+    footprint_json TEXT NOT NULL DEFAULT '{}',
+    weather_json TEXT NOT NULL DEFAULT '{}',
+    resonance_json TEXT NOT NULL DEFAULT '[]',
+    suspense_json TEXT NOT NULL DEFAULT '[]',
+    source_session_ids_json TEXT NOT NULL DEFAULT '[]'
+);
 """
 
 
@@ -79,7 +96,7 @@ def parse_dt(value: str) -> datetime | None:
         return None
 
 
-def _decode_json_list(value: str | None) -> list[dict]:
+def _decode_json_list(value: str | None) -> list:
     if not value:
         return []
     try:
@@ -87,6 +104,16 @@ def _decode_json_list(value: str | None) -> list[dict]:
     except json.JSONDecodeError:
         return []
     return decoded if isinstance(decoded, list) else []
+
+
+def _decode_json_dict(value: str | None) -> dict:
+    if not value:
+        return {}
+    try:
+        decoded = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return decoded if isinstance(decoded, dict) else {}
 
 
 def _normalize_db(raw: object) -> dict:
@@ -128,6 +155,31 @@ def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition
 def _migrate_db() -> None:
     with sqlite3.connect(DB_PATH) as conn:
         _ensure_column(conn, "sessions", "unlock_at", "TEXT")
+        _ensure_column(conn, "users", "weekly_report_enabled", "INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(
+            conn,
+            "couples",
+            "weekly_report_interval_days",
+            "INTEGER NOT NULL DEFAULT 7",
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS reports (
+                report_id TEXT PRIMARY KEY,
+                couple_id TEXT NOT NULL,
+                window_start TEXT NOT NULL,
+                window_end TEXT NOT NULL,
+                generated_at TEXT NOT NULL,
+                model_version TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL,
+                footprint_json TEXT NOT NULL DEFAULT '{}',
+                weather_json TEXT NOT NULL DEFAULT '{}',
+                resonance_json TEXT NOT NULL DEFAULT '[]',
+                suspense_json TEXT NOT NULL DEFAULT '[]',
+                source_session_ids_json TEXT NOT NULL DEFAULT '[]'
+            )
+            """
+        )
 
 
 def _is_initialized() -> bool:
@@ -174,6 +226,7 @@ def load_db() -> dict:
                 "password_hash": row["password_hash"],
                 "couple_id": row["couple_id"],
                 "joined_at": row["joined_at"],
+                "weekly_report_enabled": bool(row["weekly_report_enabled"]),
             }
             for row in conn.execute("SELECT * FROM users ORDER BY joined_at, user_id")
         ]
@@ -188,6 +241,7 @@ def load_db() -> dict:
                 "uncouple_initiated_at": row["uncouple_initiated_at"],
                 "both_agreed_uncouple": bool(row["both_agreed_uncouple"]),
                 "freeze_ends_at": row["freeze_ends_at"],
+                "weekly_report_interval_days": row["weekly_report_interval_days"],
             }
             for row in conn.execute("SELECT * FROM couples ORDER BY created_at, couple_id")
         ]
@@ -203,25 +257,46 @@ def load_db() -> dict:
             }
             for row in conn.execute("SELECT * FROM auth_tokens ORDER BY expires_at, token")
         ]
+        reports = [
+            {
+                "report_id": row["report_id"],
+                "couple_id": row["couple_id"],
+                "window_start": row["window_start"],
+                "window_end": row["window_end"],
+                "generated_at": row["generated_at"],
+                "model_version": row["model_version"],
+                "footprint": _decode_json_dict(row["footprint_json"]),
+                "weather": _decode_json_dict(row["weather_json"]),
+                "resonance": _decode_json_list(row["resonance_json"]),
+                "suspense": _decode_json_list(row["suspense_json"]),
+                "status": row["status"],
+                "source_session_ids": _decode_json_list(row["source_session_ids_json"]),
+            }
+            for row in conn.execute("SELECT * FROM reports ORDER BY generated_at, report_id")
+        ]
     return {
         "users": users,
         "couples": couples,
         "sessions": sessions,
         "auth_tokens": auth_tokens,
+        "reports": reports,
     }
 
 
 def _write_db(normalized: dict) -> None:
     with _conn() as conn:
         conn.execute("DELETE FROM auth_tokens")
+        conn.execute("DELETE FROM reports")
         conn.execute("DELETE FROM sessions")
         conn.execute("DELETE FROM couples")
         conn.execute("DELETE FROM users")
 
         conn.executemany(
             """
-            INSERT INTO users (user_id, username, password_hash, couple_id, joined_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO users (
+                user_id, username, password_hash, couple_id, joined_at, weekly_report_enabled
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -230,6 +305,7 @@ def _write_db(normalized: dict) -> None:
                     user["password_hash"],
                     user.get("couple_id"),
                     user["joined_at"],
+                    int(bool(user.get("weekly_report_enabled", False))),
                 )
                 for user in normalized["users"]
             ],
@@ -238,9 +314,10 @@ def _write_db(normalized: dict) -> None:
             """
             INSERT INTO couples (
                 couple_id, user_a, user_b, created_at, couple_status,
-                uncouple_initiated_by, uncouple_initiated_at, both_agreed_uncouple, freeze_ends_at
+                uncouple_initiated_by, uncouple_initiated_at, both_agreed_uncouple,
+                freeze_ends_at, weekly_report_interval_days
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -253,6 +330,7 @@ def _write_db(normalized: dict) -> None:
                     couple.get("uncouple_initiated_at"),
                     int(bool(couple.get("both_agreed_uncouple", False))),
                     couple.get("freeze_ends_at"),
+                    int(couple.get("weekly_report_interval_days", 7)),
                 )
                 for couple in normalized["couples"]
             ],
@@ -304,6 +382,33 @@ def _write_db(normalized: dict) -> None:
                     token["expires_at"],
                 )
                 for token in normalized["auth_tokens"]
+            ],
+        )
+        conn.executemany(
+            """
+            INSERT INTO reports (
+                report_id, couple_id, window_start, window_end, generated_at,
+                model_version, status, footprint_json, weather_json, resonance_json,
+                suspense_json, source_session_ids_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    report["report_id"],
+                    report["couple_id"],
+                    report["window_start"],
+                    report["window_end"],
+                    report["generated_at"],
+                    report.get("model_version", ""),
+                    report.get("status", "ready"),
+                    json.dumps(report.get("footprint", {}), ensure_ascii=False),
+                    json.dumps(report.get("weather", {}), ensure_ascii=False),
+                    json.dumps(report.get("resonance", []), ensure_ascii=False),
+                    json.dumps(report.get("suspense", []), ensure_ascii=False),
+                    json.dumps(report.get("source_session_ids", []), ensure_ascii=False),
+                )
+                for report in normalized["reports"]
             ],
         )
 

@@ -274,6 +274,7 @@ def destroy_couple_data(couple_id: str) -> None
 - 不可逆销毁操作
 - 删除指定情侣关系下的：
   - 所有 sessions
+  - 所有 reports
   - 所有磁盘文件
   - 所有归档 `.md`
 - 同时：

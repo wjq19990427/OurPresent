@@ -14,6 +14,9 @@ def destroy_couple_data_in_db(db: dict, couple_id: str) -> None:
     db["sessions"] = [
         session for session in db["sessions"] if session.get("couple_id") != couple_id
     ]
+    db["reports"] = [
+        report for report in db.get("reports", []) if report.get("couple_id") != couple_id
+    ]
     for couple in db["couples"]:
         if couple["couple_id"] == couple_id:
             couple["couple_status"] = "dissolved"
