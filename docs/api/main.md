@@ -7,9 +7,8 @@ def _init_state() -> None
 - 初始化 `st.session_state` 默认键：
   - `user`
   - `upload_key`
-  - `pending_selected`
-  - `archived_selected`
-  - `shared_selected`
+  - `us_selected`
+  - `mine_selected`
   - `auth_tab`
 - 若 URL 中存在 `token`，尝试自动恢复登录
 
@@ -33,7 +32,7 @@ def main() -> None
   2. `_init_state()`
   3. 未登录则显示 `render_auth_page()`
   4. 已登录则调用 `load_db_with_tick()`
-  5. 渲染五个主 Tab
+  5. 渲染三个主 Tab（🏠 我们 / 📝 我的 / ⚙️ 设置）
 
 当前 `st.session_state` 关键键：
 
@@ -41,9 +40,8 @@ def main() -> None
 |------|------|------|
 | `user` | `User | None` | 当前登录用户 |
 | `upload_key` | `int` | 上传控件重置计数器 |
-| `pending_selected` | `str | None` | 灵感墙当前选中的 `session_id` |
-| `archived_selected` | `str | None` | 已归档当前选中的 `session_id` |
-| `shared_selected` | `str | None` | 情侣空间当前选中的 `session_id` |
+| `us_selected` | `str | None` | 「🏠 我们」当前选中的 `session_id` |
+| `mine_selected` | `str | None` | 「📝 我的」当前选中的 `session_id` |
 | `auth_tab` | `str` | 登录页内部标签状态 |
 
 ---

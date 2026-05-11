@@ -66,7 +66,7 @@ class SessionRecord:
     comments: list[dict]
 ```
 
-- 表示一条记录（灵感墙或归档区）
+- 表示一条记录（草稿或归档）
 - `status`：`pending` 或 `final`
 - `visibility`：`private` / `pending_unlock` / `shared`
 - `upload_time`：记录创建/上传时间，不参与共享解锁计算
