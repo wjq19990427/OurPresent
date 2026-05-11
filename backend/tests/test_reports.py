@@ -6,6 +6,7 @@ from backend.application.couples import (
     send_bind_request,
     start_uncouple,
 )
+from backend.application.reports import get_latest_ready_report, list_reports
 from backend.domain.models import Report
 from backend.infrastructure.database.reports_repo import (
     create_report,
@@ -61,6 +62,26 @@ def test_list_reports_for_couple_orders_by_generated_at_desc() -> None:
     reports = list_reports_for_couple("cp_1")
 
     assert [report.report_id for report in reports] == [newer.report_id, older.report_id]
+
+
+def test_report_query_returns_ordered_reports_and_latest_visible() -> None:
+    failed = _report("rpt_failed_cp_1", "cp_1", "2026-05-13 03:00:00")
+    failed.status = "failed"
+    sparse = _report("rpt_sparse_cp_1", "cp_1", "2026-05-12 03:00:00")
+    sparse.status = "sparse"
+    ready = _report("rpt_ready_cp_1", "cp_1", "2026-05-11 03:00:00")
+    create_report(ready)
+    create_report(sparse)
+    create_report(failed)
+
+    reports = list_reports("cp_1")
+
+    assert [report.report_id for report in reports] == [
+        failed.report_id,
+        sparse.report_id,
+        ready.report_id,
+    ]
+    assert get_latest_ready_report("cp_1") == sparse
 
 
 def test_confirm_uncouple_deletes_reports_for_couple() -> None:

@@ -188,6 +188,12 @@ def render_us_tab(db: dict) -> None
 
 - Tab 1「🏠 我们」，登录后默认落地页
 - 未绑定伴侣时提示去「设置」绑定
+- 已绑定时，在 shared 时间线之上显示「📊 周报」占位区
+  - 双方都开启周报服务：显示第一周共享记录邀请文案
+  - 仅当前用户开启：显示等待对方一同开启文案
+  - 仅伴侣开启：显示对方已开启并引导去「设置」开启
+  - 双方都未开启：显示开启周报服务邀请文案
+  - 本占位区不调用 metrics / query，不渲染真实周报内容
 - 读取当前 couple 下所有 `visibility == "shared"` 的 `SessionRecord`
 - 过滤条件：
   - `session.couple_id == couple.couple_id`
@@ -228,10 +234,16 @@ def render_settings_tab(db: dict) -> None
 - Tab 3「⚙️ 设置」
 - 包含：
   - 当前用户资料
+  - 情感周报服务
   - 收到的绑定请求
   - 伴侣绑定面板
   - 解除绑定入口
   - 冻结期导出入口
+- 「情感周报服务」section：
+  - 显示当前用户 `weekly_report_enabled` 开关，切换立即持久化到 `User`
+  - 未绑定伴侣时 section 仍显示，开关只影响个人偏好，并提示绑定后双方开启即可生效
+  - active 关系下展示对方开启状态
+  - 当 `service_active_for_couple(couple_id)` 为 `True` 时显示频率选择，选项为 7 / 14 / 30 天，改动立即持久化到 `Couple.weekly_report_interval_days`
 
 情侣状态对应 UI：
 

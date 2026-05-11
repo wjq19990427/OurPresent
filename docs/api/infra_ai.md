@@ -14,5 +14,7 @@ def get_shared_sessions_for_rag(couple_id: str) -> list[dict]
 def get_report_history(couple_id: str) -> list[dict]
 ```
 
-- 预留给未来“情感周报”或“关系报告”功能
-- 当前直接抛 `NotImplementedError`
+- 情感周报历史薄包装
+- 委托 `backend.application.reports.query.list_reports(couple_id)`
+- 返回 `Report.to_dict()` 列表，排序由 query/repository 保证为 `generated_at` 倒序
+- 包含 `failed`，便于未来排障入口使用

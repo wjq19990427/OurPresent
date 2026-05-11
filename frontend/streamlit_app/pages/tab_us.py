@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from backend.application.reports import partner_enabled_status
 from backend.application.sessions import can_view_session
 from backend.infrastructure.database.sessions_repo import list_sessions_for_couple
 from backend.infrastructure.database.users_repo import get_user_by_id
@@ -15,11 +16,30 @@ def _username(user_id: str) -> str:
     return user.username if user else user_id
 
 
+def _render_weekly_report_placeholder() -> None:
+    status = partner_enabled_status(_uid())
+    if status == "both":
+        with st.expander("📊 周报", expanded=False):
+            st.info("邀请你写下第一周的共享记录。")
+        return
+
+    with st.expander("📊 周报", expanded=False):
+        if status == "only_partner":
+            st.info("对方已开启周报，要不要一起开启？去「设置」里打开你的开关。")
+        elif status == "only_self":
+            st.info("⌛ 等待对方一同开启。你们都开启后，这里会出现属于你们的情感周报。")
+        else:
+            st.info("开启情感周报后，可以一起回看共享记录里的关系足迹。")
+
+
 def render_us_tab(db: dict) -> None:
     couple = _couple()
     if not couple or couple.couple_status != "active":
         st.info("先去「设置」里绑定伴侣。")
         return
+
+    _render_weekly_report_placeholder()
+    st.divider()
 
     sessions = sorted(
         [

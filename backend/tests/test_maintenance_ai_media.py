@@ -6,9 +6,10 @@ import pytest
 from PIL import Image
 
 from backend.application.maintenance import load_db_with_tick, tick
-from backend.domain.models import SessionRecord
+from backend.domain.models import Report, SessionRecord
 from backend.infrastructure.ai.agent_skills import get_report_history, get_shared_sessions_for_rag
 from backend.infrastructure.database import db as db_module
+from backend.infrastructure.database.reports_repo import create_report
 from backend.infrastructure.database.sessions_repo import add_session
 from backend.infrastructure.database.users_repo import create_user
 from backend.infrastructure.media import thumbnails
@@ -135,7 +136,7 @@ def test_load_db_with_tick_persists_frozen_couple_cleanup(tmp_path) -> None:
     assert not attachment.exists()
 
 
-def test_ai_helpers_filter_shared_sessions_and_raise_for_unimplemented_reports() -> None:
+def test_ai_helpers_filter_shared_sessions_and_return_report_history() -> None:
     add_session(
         SessionRecord(
             session_id="session_3",
@@ -170,8 +171,26 @@ def test_ai_helpers_filter_shared_sessions_and_raise_for_unimplemented_reports()
     shared = get_shared_sessions_for_rag("cp_1")
 
     assert [item["session_id"] for item in shared] == ["session_3"]
-    with pytest.raises(NotImplementedError, match="周报功能尚未实现"):
-        get_report_history("cp_1")
+    create_report(
+        Report(
+            report_id="rpt_20260510_cp_1",
+            couple_id="cp_1",
+            window_start="2026-05-04 00:00:00",
+            window_end="2026-05-10 23:59:59",
+            generated_at="2026-05-11 03:00:00",
+            model_version="",
+            footprint={"total": 1},
+            weather={},
+            resonance=[],
+            suspense=[],
+            status="ready",
+            source_session_ids=["session_3"],
+        )
+    )
+
+    history = get_report_history("cp_1")
+
+    assert [item["report_id"] for item in history] == ["rpt_20260510_cp_1"]
 
 
 def test_video_thumbnail_unavailable_and_failure_paths(monkeypatch: pytest.MonkeyPatch) -> None:

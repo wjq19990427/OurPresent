@@ -16,10 +16,60 @@ from backend.application.couples import (
     send_bind_request,
     start_uncouple,
 )
+from backend.application.reports import partner_enabled_status, service_active_for_couple
 from backend.application.sessions import collect_export_files
-from backend.infrastructure.database.couples_repo import get_pending_requests_for_user
-from backend.infrastructure.database.users_repo import get_user_by_id
+from backend.infrastructure.database.couples_repo import (
+    get_pending_requests_for_user,
+    update_couple,
+)
+from backend.infrastructure.database.users_repo import get_user_by_id, update_user
 from frontend.streamlit_app.components import _couple, _current_user, _partner_id
+
+_REPORT_INTERVAL_OPTIONS = [7, 14, 30]
+
+
+def _render_weekly_report_section(user, couple) -> None:
+    st.markdown("### 📊 情感周报服务")
+    enabled = st.checkbox(
+        "开启我的情感周报服务",
+        value=user.weekly_report_enabled,
+        help="双方都开启后，才会为你们的共享记录生成周报。",
+    )
+    if enabled != user.weekly_report_enabled:
+        updated = update_user(user.user_id, {"weekly_report_enabled": enabled})
+        if updated:
+            st.session_state["user"] = updated
+        st.rerun()
+
+    status = partner_enabled_status(user.user_id)
+    if not couple or couple.couple_status != "active":
+        st.caption("（未绑定伴侣）")
+        st.info("绑定伴侣后，两人都开启即可生效。")
+        return
+
+    if status in ("both", "only_partner"):
+        st.success("✅ 对方已开启")
+    else:
+        st.info("⌛ 对方尚未开启")
+
+    if service_active_for_couple(couple.couple_id):
+        current_interval = couple.weekly_report_interval_days
+        index = (
+            _REPORT_INTERVAL_OPTIONS.index(current_interval)
+            if current_interval in _REPORT_INTERVAL_OPTIONS
+            else 0
+        )
+        selected_interval = st.selectbox(
+            "周报频率",
+            _REPORT_INTERVAL_OPTIONS,
+            index=index,
+            format_func=lambda days: f"每 {days} 天",
+        )
+        if selected_interval != current_interval:
+            update_couple(couple.couple_id, {"weekly_report_interval_days": selected_interval})
+            st.rerun()
+    else:
+        st.caption("两人都开启后，可以一起约定周报频率。")
 
 
 def render_settings_tab(db: dict) -> None:
@@ -41,6 +91,8 @@ def render_settings_tab(db: dict) -> None:
             st.session_state["user"] = None
             st.rerun()
 
+    st.divider()
+    _render_weekly_report_section(user, couple)
     st.divider()
 
     pending_reqs = get_pending_requests_for_user(user.user_id)

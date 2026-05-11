@@ -1,6 +1,6 @@
 ### `backend/application/reports/*` — 情感周报
 
-本 L2 契约目前仅记录 task-7 已落地的数据底座：`Report` 领域模型与 `reports_repo`。周报生成、查询用例、LLM 接入、调度与 UI 渲染将在 task-8 / task-9 及后续任务中补齐。
+本 L2 契约记录情感周报的数据底座、纯指标计算、查询用例与服务启用策略。周报生成、LLM 接入、调度与真实 UI 渲染将在 task-9 及后续任务中补齐。
 
 ---
 
@@ -70,3 +70,91 @@ def delete_reports_for_couple(couple_id: str) -> int
 - 删除指定 couple 的全部 reports
 - 返回删除条数
 - `destroy_couple_data()` 会在同一销毁链路中清理该 couple 的 reports
+
+---
+
+### `backend/application/reports/metrics.py` — 周报结构化指标
+
+```python
+def compute_footprint(
+    sessions: list[SessionRecord],
+    window: tuple[datetime, datetime],
+) -> dict
+```
+
+- 输入为指定 couple 在窗口内的 shared sessions 与窗口边界
+- 输出字段：
+  - `total`：窗口内 session 数
+  - `by_kind`：按 `photo` / `video` / `text` 计数
+  - `active_days`：基于 `shared_at` 的活跃日期数
+  - `comment_count`：评论总数
+  - `by_author`：按 `user_id` 计数
+- `kind` 由 `source_type` 与附件扩展名推导；纯文本 source 或文本附件为 `text`，图片扩展名为 `photo`，视频扩展名为 `video`
+- 不写库、不调用外部服务
+
+```python
+def compute_suspense(couple_id: str, now: datetime) -> list[dict]
+```
+
+- 返回指定 couple 当前所有 `visibility == "pending_unlock"` 的 session 元数据
+- 按 `unlock_at` 升序排列
+- 输出字段：
+  - `session_id`
+  - `unlock_at`
+  - `days_remaining`
+  - `kind`
+- 只返回元数据，不读取或抽取 private / pending_unlock 正文内容
+
+---
+
+### `backend/application/reports/query.py` — 周报查询用例
+
+```python
+def list_reports(couple_id: str) -> list[Report]
+```
+
+- 委托 `reports_repo.list_reports_for_couple()`
+- 返回指定 couple 的全部 reports，按 `generated_at` 倒序
+- 包含 `failed`，供排障使用
+
+```python
+def get_latest_ready_report(couple_id: str) -> Report | None
+```
+
+- 返回最新可见 report
+- 可见态为 `status in {"ready", "sparse"}`
+- `sparse` 算可见态，`failed` 不作为 UI 展示候选
+
+```python
+def get_report(report_id: str) -> Report | None
+```
+
+- 委托 `reports_repo.get_report()`
+- 未找到返回 `None`
+
+---
+
+### `backend/application/reports/policies.py` — 周报服务策略
+
+```python
+def service_active_for_couple(couple_id: str) -> bool
+```
+
+- 仅当 couple 存在、状态为 `active`，且双方 `User.weekly_report_enabled` 都为 `True` 时返回 `True`
+- 任一方不存在、未绑定、关系非 active 或未开启时返回 `False`
+
+```python
+def partner_enabled_status(user_id: str) -> Literal[
+    "both",
+    "only_self",
+    "only_partner",
+    "neither",
+]
+```
+
+- 从当前 user 视角描述双方周报开关组合
+- 未绑定或非 active 关系下，对方视为未开启
+  - `both`：双方都开启
+  - `only_self`：仅当前用户开启
+  - `only_partner`：仅伴侣开启
+  - `neither`：双方都未开启
