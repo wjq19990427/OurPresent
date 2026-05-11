@@ -6,15 +6,20 @@ import streamlit as st
 
 from backend.application.reports import (
     generate_weekly_report,
-    get_latest_ready_report,
+    list_reports,
     partner_enabled_status,
     service_active_for_couple,
 )
 from backend.application.sessions import can_view_session
-from backend.domain.models import Report
 from backend.infrastructure.database.sessions_repo import list_sessions_for_couple
 from backend.infrastructure.database.users_repo import get_user_by_id
-from frontend.streamlit_app.components import _couple, _uid, render_card, render_detail
+from frontend.streamlit_app.components import (
+    _couple,
+    _uid,
+    render_card,
+    render_detail,
+    render_weekly_report,
+)
 
 
 def _username(user_id: str) -> str:
@@ -22,116 +27,65 @@ def _username(user_id: str) -> str:
     return user.username if user else user_id
 
 
-def _render_report_footprint(report: Report) -> None:
-    footprint = report.footprint
-    col_total, col_days, col_comments = st.columns(3)
-    col_total.metric("共享记录", footprint.get("total", 0))
-    col_days.metric("活跃天数", footprint.get("active_days", 0))
-    col_comments.metric("评论", footprint.get("comment_count", 0))
-
-    by_kind = footprint.get("by_kind", {})
-    if by_kind:
-        st.caption(
-            " · ".join(
-                [
-                    f"图片 {by_kind.get('photo', 0)}",
-                    f"视频 {by_kind.get('video', 0)}",
-                    f"文字 {by_kind.get('text', 0)}",
-                ]
-            )
-        )
+def _settings_hint_button(key: str) -> None:
+    if st.button("去「设置」开启", key=key, use_container_width=True):
+        st.info("入口在上方「⚙️ 设置」tab 的「情感周报服务」里。")
 
 
-def _render_report_weather(report: Report) -> None:
-    weather = report.weather or {}
-    if not weather:
-        return
-    st.markdown("#### 情绪气象站")
-    narrative = weather.get("narrative", "")
-    if narrative:
-        st.info(narrative)
-    tags = weather.get("tags", [])
-    for tag in tags:
-        label = tag.get("label", "")
-        weight = float(tag.get("weight", 0) or 0)
-        phase = tag.get("phase", "")
-        st.caption(f"{label} · {phase}")
-        st.progress(max(0.0, min(weight, 1.0)))
-
-
-def _render_report_resonance(report: Report) -> None:
-    if not report.resonance:
-        return
-    st.markdown("#### 同频与共鸣瞬间")
-    for item in report.resonance:
-        with st.container(border=True):
-            st.caption(item.get("day", ""))
-            st.markdown(f"**{item.get('topic', '同日共享')}**")
-            left, right = st.columns(2)
-            left.write(item.get("user_a_excerpt", ""))
-            right.write(item.get("user_b_excerpt", ""))
-
-
-def _kind_icon(kind: str) -> str:
-    return {"photo": "🖼", "video": "🎞", "text": "📝"}.get(kind, "📎")
-
-
-def _render_report_suspense(report: Report) -> None:
-    if not report.suspense:
-        return
-    st.markdown("#### 未尽的悬念")
-    for item in report.suspense:
-        icon = _kind_icon(item.get("kind", ""))
-        st.caption(
-            f"{icon} 还剩 {item.get('days_remaining', 0)} 天 · "
-            f"{item.get('unlock_at', '未设置时间')}"
-        )
-
-
-def _render_latest_report(report: Report) -> None:
-    st.caption(f"{report.window_start} → {report.window_end}")
-    _render_report_footprint(report)
-    if report.status == "sparse":
-        st.info("这周共享记录较少，留些空白也好。")
-        return
-    _render_report_weather(report)
-    _render_report_resonance(report)
-    _render_report_suspense(report)
-
-
-def _render_weekly_report_panel(couple_id: str) -> None:
+def _render_weekly_report_panel(couple) -> None:
     # TASK-9 临时按钮，cron 稳定后另开任务删除
-    active = service_active_for_couple(couple_id)
-    latest_report = get_latest_ready_report(couple_id)
+    active = service_active_for_couple(couple.couple_id)
+    reports = list_reports(couple.couple_id)
+    latest_report = reports[0] if reports else None
     status = partner_enabled_status(_uid())
 
     with st.expander("📊 周报", expanded=False):
+        if couple.couple_status == "frozen":
+            st.info("冻结期内不会生成新的周报，已经生成的历史仍可查看。")
+            latest_visible = next(
+                (report for report in reports if report.status != "failed"),
+                None,
+            )
+            if latest_visible:
+                render_weekly_report(latest_visible)
+            else:
+                st.caption("还没有可查看的历史周报。")
+            return
+
         if active:
             # TASK-9 临时按钮，cron 稳定后另开任务删除
             if st.button("🧪 立即生成周报（测试）", use_container_width=True):
-                generate_weekly_report(couple_id)
+                generate_weekly_report(couple.couple_id)
                 st.rerun()
             st.caption("（临时入口，cron 稳定后将由架构师删除）")
 
-        if latest_report:
-            _render_latest_report(latest_report)
-        elif status == "both":
-            st.info("邀请你写下第一周的共享记录。")
+        if status == "both":
+            if not latest_report:
+                st.info("邀请你写下第一周的共享记录。")
+            elif latest_report.status == "failed":
+                st.info("上一次生成遇到了一些波折，会在下次自动重试。")
+            else:
+                render_weekly_report(latest_report)
         elif status == "only_partner":
-            st.info("对方已开启周报，要不要一起开启？去「设置」里打开你的开关。")
+            st.info("对方已开启周报，要不要一起？")
+            _settings_hint_button("weekly_only_partner_settings")
         elif status == "only_self":
-            st.info("⌛ 等待对方一同开启。你们都开启后，这里会出现属于你们的情感周报。")
+            st.info("⌛ 等待对方一同开启。对方可以在「设置」里的情感周报服务中打开开关。")
         else:
-            st.info("开启情感周报后，可以一起回看共享记录里的关系足迹。")
+            st.info("一起开启情感周报，每周看到我们的足迹。")
+            _settings_hint_button("weekly_neither_settings")
 
 
 def render_us_tab(db: dict) -> None:
     couple = _couple()
-    if not couple or couple.couple_status != "active":
+    if not couple:
         st.info("先去「设置」里绑定伴侣。")
         return
+    if couple.couple_status == "pending_bind":
+        st.info("绑定确认后，这里会出现你们共享的记录。")
+        return
 
-    _render_weekly_report_panel(couple.couple_id)
+    _render_weekly_report_panel(couple)
     st.divider()
 
     sessions = sorted(

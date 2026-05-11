@@ -176,6 +176,26 @@ def render_detail(
 - 纯文字记录的 `description` 不可手动修改
 - `read_only=True` 时不展示字段编辑、共享申请、撤回、追加、修改时间、立即解锁等自身记录操作，但评论区仍可互动
 
+#### 情感周报渲染
+
+```python
+def render_weekly_report(report: Report) -> None
+```
+
+- 渲染一份可见周报
+- `ready` 渲染顺序为 footprint → weather → resonance → suspense
+- `sparse` 仅渲染 footprint，并显示温和说明「这周共享记录较少，留些空白也好。」
+- suspense 只展示 kind 图标、剩余天数与 unlock 时间，不展示 session 文本字段
+
+```python
+def render_report_history(reports: list[Report]) -> None
+```
+
+- 渲染周报历史列表
+- 按 `generated_at` 倒序
+- 过滤 `status == "failed"`，不向普通 UI 暴露失败项
+- 列表项展示 `window_start ~ window_end` 与状态徽章，点击展开后调用 `render_weekly_report()`
+
 ---
 
 ### `frontend/streamlit_app/pages/` — 页面模块
@@ -188,17 +208,18 @@ def render_us_tab(db: dict) -> None
 
 - Tab 1「🏠 我们」，登录后默认落地页
 - 未绑定伴侣时提示去「设置」绑定
-- 已绑定时，在 shared 时间线之上显示「📊 周报」区块
-  - 有最新 `status in {"ready", "sparse"}` report：渲染真实周报
-  - 双方都开启周报服务且暂无报告：显示第一周共享记录邀请文案
-  - 仅当前用户开启：显示等待对方一同开启文案
-  - 仅伴侣开启：显示对方已开启并引导去「设置」开启
-  - 双方都未开启：显示开启周报服务邀请文案
-  - 历史 ready/sparse report 在服务单方关闭后仍可见
-  - `sparse` report 只展示 footprint 与温和提示
-  - `ready` report 渲染顺序为 footprint → weather → resonance → suspense
-  - suspense 只展示 kind 图标、剩余天数与 unlock 时间，不展示 session 文本字段
-  - 双方都开启服务时显示临时测试按钮「🧪 立即生成周报（测试）」并调用 `generate_weekly_report(couple_id)`；该入口将在 cron 稳定后删除
+- pending bind 时提示绑定确认后出现共享记录
+- active / frozen 关系下，在 shared 时间线之上显示「📊 周报」区块
+- 周报区状态矩阵：
+  - 双方都未开启：显示「一起开启情感周报，每周看到我们的足迹」并引导去「设置」
+  - 仅当前用户开启：显示「⌛ 等待对方一同开启」，并提示对方在「设置」里的位置
+  - 仅伴侣开启：显示「对方已开启周报，要不要一起？」并引导去「设置」
+  - 双方都开启且无任何 report：显示第一周共享记录邀请文案，不出现「立即生成」字样
+  - 双方都开启且最新 `status == "ready"`：渲染完整周报
+  - 双方都开启且最新 `status == "sparse"`：仅渲染 footprint 与温和提示
+  - 双方都开启且最新 `status == "failed"`：显示「上一次生成遇到了一些波折，会在下次自动重试」，不展示报告内容或错误细节
+  - 冻结期：显示冻结说明，不展示手动生成入口；已生成的 ready/sparse 历史仍可读
+- 双方都开启服务且关系 active 时显示临时测试按钮「🧪 立即生成周报（测试）」并调用 `generate_weekly_report(couple_id)`；该入口将在 cron 稳定后删除
 - 读取当前 couple 下所有 `visibility == "shared"` 的 `SessionRecord`
 - 过滤条件：
   - `session.couple_id == couple.couple_id`
@@ -246,9 +267,17 @@ def render_settings_tab(db: dict) -> None
   - 冻结期导出入口
 - 「情感周报服务」section：
   - 显示当前用户 `weekly_report_enabled` 开关，切换立即持久化到 `User`
-  - 未绑定伴侣时 section 仍显示，开关只影响个人偏好，并提示绑定后双方开启即可生效
+  - 开关旁说明：周报基于已共享记录生成，不读私密内容
+  - 未绑定伴侣时 section 仍显示，开关只影响个人偏好，并提示新绑定关系的频率从默认 7 天 / 每周开始
+  - pending bind 时提示绑定确认后双方开启即可生效
   - active 关系下展示对方开启状态
-  - 当 `service_active_for_couple(couple_id)` 为 `True` 时显示频率选择，选项为 7 / 14 / 30 天，改动立即持久化到 `Couple.weekly_report_interval_days`
+  - 当 `service_active_for_couple(couple_id)` 为 `True` 时显示频率选择，选项文案为 `7 天 / 每周`、`14 天 / 每两周`、`30 天 / 每月`，改动立即持久化到 `Couple.weekly_report_interval_days`
+  - active / frozen 关系下展示「查看周报历史」入口，调用 `list_reports(couple_id)` 后由 `render_report_history()` 过滤 failed 并倒序展示
+  - frozen 关系下展示冻结说明，开关只读，历史报告可读且不会生成新报告
+- 周报 UI 文案基调：
+  - 保持温和、不评判、不指责任一方
+  - 不使用「你应该」「你需要」「建议你」等祈使句
+  - failed 只展示自动重试说明，不暴露错误细节
 
 情侣状态对应 UI：
 

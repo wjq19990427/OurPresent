@@ -16,24 +16,47 @@ from backend.application.couples import (
     send_bind_request,
     start_uncouple,
 )
-from backend.application.reports import partner_enabled_status, service_active_for_couple
+from backend.application.reports import (
+    list_reports,
+    partner_enabled_status,
+    service_active_for_couple,
+)
 from backend.application.sessions import collect_export_files
 from backend.infrastructure.database.couples_repo import (
     get_pending_requests_for_user,
     update_couple,
 )
 from backend.infrastructure.database.users_repo import get_user_by_id, update_user
-from frontend.streamlit_app.components import _couple, _current_user, _partner_id
+from frontend.streamlit_app.components import (
+    _couple,
+    _current_user,
+    _partner_id,
+    render_report_history,
+)
 
 _REPORT_INTERVAL_OPTIONS = [7, 14, 30]
+_REPORT_INTERVAL_LABELS = {
+    7: "7 天 / 每周",
+    14: "14 天 / 每两周",
+    30: "30 天 / 每月",
+}
+
+
+def _render_report_history_entry(couple) -> None:
+    if not couple or couple.couple_status not in ("active", "frozen"):
+        return
+    with st.expander("查看周报历史", expanded=False):
+        render_report_history(list_reports(couple.couple_id))
 
 
 def _render_weekly_report_section(user, couple) -> None:
     st.markdown("### 📊 情感周报服务")
+    st.caption("周报基于你们已共享的记录生成，不读私密内容。")
     enabled = st.checkbox(
         "开启我的情感周报服务",
         value=user.weekly_report_enabled,
-        help="双方都开启后，才会为你们的共享记录生成周报。",
+        disabled=bool(couple and couple.couple_status == "frozen"),
+        help="这是你的个人意愿；双方都开启后，才会为你们的共享记录生成周报。",
     )
     if enabled != user.weekly_report_enabled:
         updated = update_user(user.user_id, {"weekly_report_enabled": enabled})
@@ -42,9 +65,17 @@ def _render_weekly_report_section(user, couple) -> None:
         st.rerun()
 
     status = partner_enabled_status(user.user_id)
-    if not couple or couple.couple_status != "active":
+    if not couple:
         st.caption("（未绑定伴侣）")
-        st.info("绑定伴侣后，两人都开启即可生效。")
+        st.info("这个开关会保留为个人偏好；下次绑定后，频率会从 7 天 / 每周开始。")
+        return
+    if couple.couple_status == "pending_bind":
+        st.caption("（等待绑定确认）")
+        st.info("绑定确认后，两人都开启即可生效。")
+        return
+    if couple.couple_status == "frozen":
+        st.info("冻结期内不会生成新的周报；已经生成的历史仍可查看。")
+        _render_report_history_entry(couple)
         return
 
     if status in ("both", "only_partner"):
@@ -63,13 +94,15 @@ def _render_weekly_report_section(user, couple) -> None:
             "周报频率",
             _REPORT_INTERVAL_OPTIONS,
             index=index,
-            format_func=lambda days: f"每 {days} 天",
+            format_func=lambda days: _REPORT_INTERVAL_LABELS[days],
+            help="频率会影响下一次自动生成的节奏。",
         )
         if selected_interval != current_interval:
             update_couple(couple.couple_id, {"weekly_report_interval_days": selected_interval})
             st.rerun()
     else:
         st.caption("两人都开启后，可以一起约定周报频率。")
+    _render_report_history_entry(couple)
 
 
 def render_settings_tab(db: dict) -> None:

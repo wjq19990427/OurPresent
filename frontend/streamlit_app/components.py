@@ -27,7 +27,7 @@ from backend.application.sessions import (
     validate_session,
 )
 from backend.config.settings import FIELD_SCHEMA, TEXT_EXTS
-from backend.domain.models import Couple, SessionRecord, User
+from backend.domain.models import Couple, Report, SessionRecord, User
 from backend.infrastructure.database.couples_repo import get_couple_for_user
 from backend.infrastructure.database.db import parse_dt
 from backend.infrastructure.database.users_repo import get_user_by_id
@@ -151,6 +151,110 @@ def _status_badge(session: SessionRecord) -> str:
         days = _days_until_unlock(session)
         return f"[倒计时·还有 {days} 天]"
     return "[已分享]"
+
+
+def _report_status_badge(report: Report) -> str:
+    if report.status == "sparse":
+        return "记录较少"
+    if report.status == "ready":
+        return "已生成"
+    return report.status
+
+
+def _render_report_footprint(report: Report) -> None:
+    footprint = report.footprint
+    col_total, col_days, col_comments = st.columns(3)
+    col_total.metric("共享记录", footprint.get("total", 0))
+    col_days.metric("活跃天数", footprint.get("active_days", 0))
+    col_comments.metric("评论", footprint.get("comment_count", 0))
+
+    by_kind = footprint.get("by_kind", {})
+    if by_kind:
+        st.caption(
+            " · ".join(
+                [
+                    f"图片 {by_kind.get('photo', 0)}",
+                    f"视频 {by_kind.get('video', 0)}",
+                    f"文字 {by_kind.get('text', 0)}",
+                ]
+            )
+        )
+
+
+def _render_report_weather(report: Report) -> None:
+    weather = report.weather or {}
+    if not weather:
+        return
+    st.markdown("#### 情绪气象站")
+    narrative = weather.get("narrative", "")
+    if narrative:
+        st.info(narrative)
+    tags = weather.get("tags", [])
+    for tag in tags:
+        label = tag.get("label", "")
+        weight = float(tag.get("weight", 0) or 0)
+        phase = tag.get("phase", "")
+        st.caption(f"{label} · {phase}")
+        st.progress(max(0.0, min(weight, 1.0)))
+
+
+def _render_report_resonance(report: Report) -> None:
+    if not report.resonance:
+        return
+    st.markdown("#### 同频与共鸣瞬间")
+    for item in report.resonance:
+        with st.container(border=True):
+            st.caption(item.get("day", ""))
+            st.markdown(f"**{item.get('topic', '同日共享')}**")
+            left, right = st.columns(2)
+            left.write(item.get("user_a_excerpt", ""))
+            right.write(item.get("user_b_excerpt", ""))
+
+
+def _kind_icon(kind: str) -> str:
+    return {"photo": "🖼", "video": "🎞", "text": "📝"}.get(kind, "📎")
+
+
+def _render_report_suspense(report: Report) -> None:
+    if not report.suspense:
+        return
+    st.markdown("#### 未尽的悬念")
+    for item in report.suspense:
+        icon = _kind_icon(item.get("kind", ""))
+        st.caption(
+            f"{icon} 还剩 {item.get('days_remaining', 0)} 天 · "
+            f"{item.get('unlock_at', '未设置时间')}"
+        )
+
+
+def render_weekly_report(report: Report) -> None:
+    st.caption(f"{report.window_start} → {report.window_end}")
+    _render_report_footprint(report)
+    if report.status == "sparse":
+        st.info("这周共享记录较少，留些空白也好。")
+        return
+    _render_report_weather(report)
+    _render_report_resonance(report)
+    _render_report_suspense(report)
+
+
+def render_report_history(reports: list[Report]) -> None:
+    visible_reports = sorted(
+        [report for report in reports if report.status != "failed"],
+        key=lambda report: report.generated_at,
+        reverse=True,
+    )
+    if not visible_reports:
+        st.caption("还没有可查看的历史周报。")
+        return
+
+    for report in visible_reports:
+        label = (
+            f"{report.window_start[:10]} ~ {report.window_end[:10]} · "
+            f"{_report_status_badge(report)}"
+        )
+        with st.expander(label, expanded=False):
+            render_weekly_report(report)
 
 
 def _looks_like_date(value: str) -> bool:
