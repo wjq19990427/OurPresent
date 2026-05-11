@@ -6,7 +6,8 @@
 
 ## [Unreleased]
 
-- Phase 2 情感周报设计闭环 + task-7~11 任务卡入库：DeepSeek V4 Flash 接入、双方协议制服务开关、couple 级频率、sparse 入库、临时手动测试按钮；task-7/8 不依赖 LLM 可立即开工，task-9 起待 API key 与真实 shared 数据
+- task-7：情感周报数据底座落地（`Report` dataclass + `reports` 表 + `User`/`Couple` 周报字段 + repository + destruction 联动 + 旧 schema 升级测试覆盖）
+- Phase 2 情感周报设计闭环 + task-7~11 任务卡入库：DeepSeek V4 Flash 接入、双方协议制服务开关、couple 级频率、sparse 入库、临时手动测试按钮
 - Phase 2 情感周报工程设计稿入库（`docs/weekly_report.md`）：NVC 四模块切分、Pipeline 七阶段、隐私三层约束 + 反原文兜底校验
 
 ## [v2.4.0] - 2026-05-11
