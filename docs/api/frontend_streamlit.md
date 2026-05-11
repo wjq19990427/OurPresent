@@ -188,12 +188,17 @@ def render_us_tab(db: dict) -> None
 
 - Tab 1「🏠 我们」，登录后默认落地页
 - 未绑定伴侣时提示去「设置」绑定
-- 已绑定时，在 shared 时间线之上显示「📊 周报」占位区
-  - 双方都开启周报服务：显示第一周共享记录邀请文案
+- 已绑定时，在 shared 时间线之上显示「📊 周报」区块
+  - 有最新 `status in {"ready", "sparse"}` report：渲染真实周报
+  - 双方都开启周报服务且暂无报告：显示第一周共享记录邀请文案
   - 仅当前用户开启：显示等待对方一同开启文案
   - 仅伴侣开启：显示对方已开启并引导去「设置」开启
   - 双方都未开启：显示开启周报服务邀请文案
-  - 本占位区不调用 metrics / query，不渲染真实周报内容
+  - 历史 ready/sparse report 在服务单方关闭后仍可见
+  - `sparse` report 只展示 footprint 与温和提示
+  - `ready` report 渲染顺序为 footprint → weather → resonance → suspense
+  - suspense 只展示 kind 图标、剩余天数与 unlock 时间，不展示 session 文本字段
+  - 双方都开启服务时显示临时测试按钮「🧪 立即生成周报（测试）」并调用 `generate_weekly_report(couple_id)`；该入口将在 cron 稳定后删除
 - 读取当前 couple 下所有 `visibility == "shared"` 的 `SessionRecord`
 - 过滤条件：
   - `session.couple_id == couple.couple_id`

@@ -193,6 +193,46 @@ def test_ai_helpers_filter_shared_sessions_and_return_report_history() -> None:
     assert [item["report_id"] for item in history] == ["rpt_20260510_cp_1"]
 
 
+def test_ai_helpers_filter_shared_sessions_by_window() -> None:
+    add_session(
+        SessionRecord(
+            session_id="inside",
+            user_id="usr_1",
+            couple_id="cp_1",
+            status="final",
+            visibility="shared",
+            unlock_requested_at=None,
+            unlock_at=None,
+            shared_at="2026-05-03 12:00:00",
+            upload_time="2026-05-03 10:00:00",
+            archive_time="2026-05-03 11:00:00",
+            is_complete=True,
+        )
+    )
+    add_session(
+        SessionRecord(
+            session_id="outside",
+            user_id="usr_1",
+            couple_id="cp_1",
+            status="final",
+            visibility="shared",
+            unlock_requested_at=None,
+            unlock_at=None,
+            shared_at="2026-04-28 12:00:00",
+            upload_time="2026-04-28 10:00:00",
+            archive_time="2026-04-28 11:00:00",
+            is_complete=True,
+        )
+    )
+
+    shared = get_shared_sessions_for_rag(
+        "cp_1",
+        (datetime(2026, 5, 1), datetime(2026, 5, 7, 23, 59, 59)),
+    )
+
+    assert [item["session_id"] for item in shared] == ["inside"]
+
+
 def test_video_thumbnail_unavailable_and_failure_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(thumbnails, "_CV2_AVAILABLE", False)
     assert thumbnails.video_thumbnail("video.mp4") == (None, "⚠ 预览不可用（缺少 cv2/PIL）")

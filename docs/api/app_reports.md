@@ -1,6 +1,6 @@
 ### `backend/application/reports/*` — 情感周报
 
-本 L2 契约记录情感周报的数据底座、纯指标计算、查询用例与服务启用策略。周报生成、LLM 接入、调度与真实 UI 渲染将在 task-9 及后续任务中补齐。
+本 L2 契约记录情感周报的数据底座、纯指标计算、查询用例、服务启用策略与手动生成 pipeline。
 
 ---
 
@@ -158,3 +158,77 @@ def partner_enabled_status(user_id: str) -> Literal[
   - `only_self`：仅当前用户开启
   - `only_partner`：仅伴侣开启
   - `neither`：双方都未开启
+
+---
+
+### `backend/application/reports/errors.py` — 周报异常
+
+```python
+class ReportGenerationError(RuntimeError)
+```
+
+- 生成入口在业务前置条件不满足时抛出
+- 当前触发条件：couple 不存在，或 `service_active_for_couple(couple_id)` 为 False
+- LLM 失败、guard 失败不抛该异常，而是持久化 `status="failed"` report
+
+---
+
+### `backend/application/reports/semantic.py` — 语义抽取
+
+```python
+def extract_semantic(sessions: list[SessionRecord]) -> tuple[dict, list[dict]]
+```
+
+- 输入为窗口内 shared sessions
+- 传给 LLM 的字段白名单严格限定为 `description` / `feeling` / `content_time` / `user_id`
+- 不传 `session_id`、`files`、文件路径、`couple_id`
+- 调用 `llm_client.extract_emotions()`、`llm_client.compose_weather_narrative()`、`llm_client.extract_resonance()`
+- 返回：
+  - `weather`: `{ "tags": list[dict], "narrative": str }`
+  - `resonance`: `[{ "day", "topic", "user_a_excerpt", "user_b_excerpt" }]`
+- `weather.narrative` 截断到 80 字符；resonance excerpt 截断到 8 字符
+- `llm_client.LLMClientError` 原样向上抛，由 generate 层兜底
+
+---
+
+### `backend/application/reports/guard.py` — 反原文引用校验
+
+```python
+VERBATIM_QUOTE_THRESHOLD = 12
+
+def check_no_verbatim_quote(
+    report_payload: dict,
+    source_sessions: list[SessionRecord],
+) -> bool
+```
+
+- 拼接 source sessions 的 `description + feeling` 作为原始语料
+- 对 `weather.narrative` 与所有 `resonance.*.excerpt` 做最长公共子串检测
+- 任一连续重合片段长度 `>= VERBATIM_QUOTE_THRESHOLD` 返回 False
+- 返回 True 表示通过，可进入 `status="ready"` 持久化
+
+---
+
+### `backend/application/reports/generate.py` — 周报生成用例
+
+```python
+def generate_weekly_report(
+    couple_id: str,
+    window_end: datetime | None = None,
+) -> Report
+```
+
+- `window_end` 为空时取当前时间
+- window 起点为 `window_end - Couple.weekly_report_interval_days`
+- 流程：
+  - 校验 `service_active_for_couple(couple_id)`；未启用抛 `ReportGenerationError`
+  - 调 `get_shared_sessions_for_rag(couple_id, window)` 获取窗口内 shared sessions
+  - 计算 `footprint` 与 `suspense`
+  - shared sessions 少于 3 条时跳过 LLM，写入 `status="sparse"` report
+  - 数据充足时调用 `extract_semantic()` 并拼装四模块 payload
+  - LLM 失败时写入 `status="failed"` report，不向 UI/cron 抛出
+  - guard 不通过时写入 `status="failed"` report，不保存 weather/resonance 正文
+  - guard 通过时写入 `status="ready"` report
+- `model_version` 写入 DeepSeek 客户端当前模型名
+- `source_session_ids` 对 sparse / ready / failed 均写入，便于审计与排障
+- `report_id` 使用 `rpt_YYYYMMDD_<couple_id>`；同日同 couple 重复手动生成会覆盖同一 report
