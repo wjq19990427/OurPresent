@@ -11,6 +11,10 @@ from backend.config.settings import FIELD_SCHEMA, FINAL_DIR
 from backend.infrastructure.database.db import now_str
 from backend.infrastructure.database.sessions_repo import get_session_by_id, replace_session
 
+_APPENDABLE_TEXT_FIELDS = {
+    field["key"] for field in FIELD_SCHEMA if field.get("type") == "textarea"
+}
+
 
 def move_to_final(session_id: str) -> None:
     session = get_session_by_id(session_id)
@@ -51,6 +55,29 @@ def update_session_fields(session_id: str, new_values: dict) -> None:
     for key, value in new_values.items():
         if key in valid_keys:
             setattr(session, key, value)
+    session.is_complete = not validate_session(session)
+    replace_session(session)
+    if session.status == "final":
+        write_session_markdown(session)
+
+
+def append_to_session(session_id: str, field: str, text: str) -> None:
+    session = get_session_by_id(session_id)
+    if not session or session.visibility != "pending_unlock":
+        raise ValueError("session must be pending_unlock")
+    if field not in _APPENDABLE_TEXT_FIELDS:
+        raise ValueError("field is not appendable")
+    appended_text = text.strip()
+    if not appended_text:
+        raise ValueError("append text cannot be empty")
+
+    original = getattr(session, field, "")
+    marker = f"[追加于 {now_str()}]"
+    if original:
+        next_value = f"{original}\n\n---\n{marker}\n{appended_text}"
+    else:
+        next_value = f"{marker}\n{appended_text}"
+    setattr(session, field, next_value)
     session.is_complete = not validate_session(session)
     replace_session(session)
     if session.status == "final":

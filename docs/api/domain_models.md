@@ -73,6 +73,8 @@ class SessionRecord:
 - `unlock_requested_at`：用户发起共享申请的时间
 - `unlock_at`：用户指定的对伴侣开放时间；为空表示未设置共享开放时间
 - `shared_at`：记录实际进入 `shared` 的时间
+- `visibility == "pending_unlock"` 时，用户可追加文本内容、修改 `unlock_at`、立即解锁或撤回申请
+- 立即解锁或把 `unlock_at` 改到过去时，`shared_at` 与 `unlock_at` 会同步写为同一个当前时间
 - `files`、`comments`、`edit_history` 仍保持字典列表，便于兼容现有 UI
 - `from_dict()` / `to_dict()` 仅由 `sessions_repo` 在持久化边界使用，application 与 frontend 层以 `SessionRecord` 传递
 

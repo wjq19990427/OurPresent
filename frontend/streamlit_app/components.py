@@ -15,11 +15,14 @@ import streamlit as st
 from backend.application.couples import is_frozen
 from backend.application.sessions import (
     add_comment,
+    append_to_session,
     delete_comment,
     is_text_session,
     move_to_final,
     request_unlock,
+    reschedule_unlock,
     revoke_unlock,
+    unlock_now,
     update_session_fields,
     validate_session,
 )
@@ -47,6 +50,10 @@ _UNLOCK_PRESET_DAYS = {
     "1 个月后": 30,
     "90 天后": 90,
 }
+
+_APPENDABLE_TEXT_FIELDS = tuple(
+    field["key"] for field in FIELD_SCHEMA if field.get("type") == "textarea"
+)
 
 
 def _current_user() -> Optional[User]:
@@ -137,6 +144,10 @@ def _visibility_badge(session: SessionRecord) -> str:
 
 def _looks_like_date(value: str) -> bool:
     return bool(re.match(r"^\d{4}-\d{2}-\d{2}$", value or ""))
+
+
+def _field_label(key: str) -> str:
+    return next((field["label"] for field in FIELD_SCHEMA if field["key"] == key), key)
 
 
 def render_field_inputs(
@@ -310,6 +321,79 @@ def render_detail(session: SessionRecord, mode: str, read_only: bool = False) ->
                     st.success(f"已申请，对方将在 {unlock_at} 后可见。")
                 st.rerun()
         elif visibility == "pending_unlock":
+            st.caption(f"当前计划开放时间：{session.unlock_at or '未设置'}")
+
+            with st.expander("追加内容", expanded=False):
+                append_options = {
+                    key: _field_label(key)
+                    for key in _APPENDABLE_TEXT_FIELDS
+                    if key not in skip_keys
+                }
+                if append_options:
+                    append_field = st.selectbox(
+                        "追加到字段",
+                        list(append_options),
+                        format_func=lambda key: append_options[key],
+                        key=f"append_field_{session.session_id}",
+                    )
+                    append_text = st.text_area(
+                        "追加内容",
+                        key=f"append_text_{session.session_id}",
+                        height=120,
+                    )
+                    if st.button("追加", key=f"append_btn_{session.session_id}"):
+                        if append_text.strip():
+                            append_to_session(session.session_id, append_field, append_text)
+                            st.success("已追加，原文已保留。")
+                            st.rerun()
+                        else:
+                            st.warning("请先写下要追加的内容。")
+
+            with st.expander("修改开放时间", expanded=False):
+                new_unlock_choice = st.selectbox(
+                    "新的开放时间",
+                    _UNLOCK_PRESETS,
+                    index=_UNLOCK_PRESETS.index("1 周后"),
+                    key=f"reschedule_choice_{session.session_id}",
+                )
+                new_custom_unlock_date = None
+                if new_unlock_choice == "自定义日期":
+                    new_custom_unlock_date = st.date_input(
+                        "选择新的开放日期",
+                        value=datetime.now().date(),
+                        min_value=datetime.now().date(),
+                        key=f"reschedule_custom_date_{session.session_id}",
+                    )
+                confirm_reschedule = st.checkbox(
+                    "我确认：这会改变伴侣看见这条记录的时间",
+                    key=f"confirm_reschedule_{session.session_id}",
+                )
+                if st.button("修改时间", key=f"reschedule_{session.session_id}"):
+                    if not confirm_reschedule:
+                        st.warning("请先勾选确认。")
+                    else:
+                        new_unlock_at = _unlock_at_for_choice(
+                            new_unlock_choice, new_custom_unlock_date
+                        )
+                        reschedule_unlock(session.session_id, new_unlock_at)
+                        if parse_dt(new_unlock_at) and parse_dt(new_unlock_at) <= datetime.now():
+                            st.success("已立即共享，对方现在可见。")
+                        else:
+                            st.success(f"已修改，对方将在 {new_unlock_at} 后可见。")
+                        st.rerun()
+
+            confirm_unlock_now = st.checkbox(
+                "我确认：这会改变伴侣看见这条记录的时间",
+                key=f"confirm_unlock_now_{session.session_id}",
+            )
+            if st.button("立即解锁", key=f"unlock_now_{session.session_id}"):
+                if not confirm_unlock_now:
+                    st.warning("请先勾选确认。")
+                else:
+                    unlock_now(session.session_id)
+                    st.success("已共享，对方现在可见。")
+                    st.rerun()
+
             if st.button("↩️ 撤回共享申请", key=f"revoke_{session.session_id}"):
                 revoke_unlock(session.session_id)
                 st.info("已撤回，记录恢复为私密状态。")

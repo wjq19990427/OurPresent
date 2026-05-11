@@ -3,11 +3,23 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from backend.application.sessions.comments import add_comment, delete_comment
 from backend.application.sessions.creation import save_session_final, save_session_pending
-from backend.application.sessions.editing import move_to_final, update_session_fields
+from backend.application.sessions.editing import (
+    append_to_session,
+    move_to_final,
+    update_session_fields,
+)
 from backend.application.sessions.export import collect_export_files
-from backend.application.sessions.sharing import can_view_session, request_unlock, revoke_unlock
+from backend.application.sessions.sharing import (
+    can_view_session,
+    request_unlock,
+    reschedule_unlock,
+    revoke_unlock,
+    unlock_now,
+)
 from backend.application.sessions.validation import is_text_session, validate_session
 from backend.domain.models import SessionRecord
 from backend.infrastructure.database.sessions_repo import (
@@ -288,8 +300,114 @@ def test_request_unlock_immediate_shares_without_pending_snapshot() -> None:
     assert stored is not None
     assert stored.visibility == "shared"
     assert stored.unlock_requested_at
-    assert stored.unlock_at == past
     assert stored.shared_at
+    assert stored.unlock_at == stored.shared_at
+
+
+def test_append_to_pending_unlock_session_preserves_original_without_history() -> None:
+    session = _session_record(
+        session_id="session_append",
+        status="final",
+        visibility="pending_unlock",
+        unlock_requested_at="2026-05-01 10:00:00",
+        unlock_at="2026-05-18 10:00:00",
+        feeling="原来的感受",
+        edit_history=[],
+    )
+    add_session(session)
+
+    append_to_session("session_append", "feeling", "后来又想补充一句")
+
+    stored = get_session_by_id("session_append")
+    assert stored is not None
+    assert stored.feeling.startswith("原来的感受")
+    assert "[追加于 " in stored.feeling
+    assert "后来又想补充一句" in stored.feeling
+    assert stored.edit_history == []
+
+
+def test_unlock_now_sets_shared_state_and_aligns_times() -> None:
+    session = _session_record(
+        session_id="session_unlock_now",
+        visibility="pending_unlock",
+        unlock_requested_at="2026-05-01 10:00:00",
+        unlock_at=(datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S"),
+    )
+    add_session(session)
+
+    unlock_now("session_unlock_now")
+
+    stored = get_session_by_id("session_unlock_now")
+    assert stored is not None
+    assert stored.visibility == "shared"
+    assert stored.shared_at
+    assert stored.unlock_at == stored.shared_at
+    assert stored.unlock_requested_at == "2026-05-01 10:00:00"
+
+
+def test_reschedule_unlock_future_keeps_pending_and_request_time() -> None:
+    session = _session_record(
+        session_id="session_reschedule",
+        visibility="pending_unlock",
+        unlock_requested_at="2026-05-01 10:00:00",
+        unlock_at=(datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S"),
+    )
+    add_session(session)
+    new_unlock_at = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+
+    reschedule_unlock("session_reschedule", new_unlock_at)
+
+    stored = get_session_by_id("session_reschedule")
+    assert stored is not None
+    assert stored.visibility == "pending_unlock"
+    assert stored.unlock_at == new_unlock_at
+    assert stored.unlock_requested_at == "2026-05-01 10:00:00"
+
+
+def test_reschedule_unlock_past_unlocks_immediately() -> None:
+    session = _session_record(
+        session_id="session_reschedule_past",
+        visibility="pending_unlock",
+        unlock_requested_at="2026-05-01 10:00:00",
+        unlock_at=(datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S"),
+    )
+    add_session(session)
+    past_unlock_at = (datetime.now() - timedelta(seconds=1)).strftime("%Y-%m-%d %H:%M:%S")
+
+    reschedule_unlock("session_reschedule_past", past_unlock_at)
+
+    stored = get_session_by_id("session_reschedule_past")
+    assert stored is not None
+    assert stored.visibility == "shared"
+    assert stored.shared_at
+    assert stored.unlock_at == stored.shared_at
+
+
+def test_pending_unlock_actions_reject_non_pending_visibility() -> None:
+    private_session = _session_record(session_id="session_private", visibility="private")
+    shared_session = _session_record(session_id="session_shared", visibility="shared")
+    add_session(private_session)
+    add_session(shared_session)
+
+    with pytest.raises(ValueError, match="pending_unlock"):
+        append_to_session("session_private", "feeling", "补充")
+    with pytest.raises(ValueError, match="pending_unlock"):
+        unlock_now("session_private")
+    with pytest.raises(ValueError, match="pending_unlock"):
+        reschedule_unlock("session_shared", "2026-05-12 10:00:00")
+
+
+def test_append_to_session_rejects_non_text_field() -> None:
+    session = _session_record(
+        session_id="session_append_invalid",
+        visibility="pending_unlock",
+        unlock_requested_at="2026-05-01 10:00:00",
+        unlock_at="2026-05-18 10:00:00",
+    )
+    add_session(session)
+
+    with pytest.raises(ValueError, match="appendable"):
+        append_to_session("session_append_invalid", "content_time", "2026-05-02")
 
 
 def test_unlock_choice_defaults_and_custom_dates() -> None:

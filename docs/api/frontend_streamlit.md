@@ -144,6 +144,13 @@ def render_detail(session: SessionRecord, mode: str, read_only: bool = False) ->
 - `mode="pending"` 时支持“完成并归档”
 - 自己的记录可申请共享或撤回共享
 - 申请共享时默认选中“1 周后”，可选择“立即”、预设天数或日历自定义日期；最终调用 `request_unlock(session_id, unlock_at)`
+- 自己的 `visibility == "pending_unlock"` 记录在详情区暴露四个动作：
+  - 追加内容：可向 `description` / `feeling` / `reason` 追加文本，调用 `append_to_session()`
+  - 修改开放时间：可选择新的预设或自定义日期，勾选确认后调用 `reschedule_unlock()`
+  - 立即解锁：勾选确认后调用 `unlock_now()`
+  - 撤回共享申请：调用 `revoke_unlock()`
+- “修改开放时间”和“立即解锁”必须通过确认勾选，明确提示会改变伴侣看见记录的时间
+- `visibility == "private"` 或 `"shared"` 的记录不展示 pending 解锁调整动作
 - 纯文字记录的 `description` 不可手动修改
 
 ---

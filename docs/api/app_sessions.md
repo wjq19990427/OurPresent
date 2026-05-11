@@ -160,6 +160,18 @@ def update_session_fields(session_id: str, new_values: dict) -> None
 - 对纯文字 session，不追踪 `description` 的编辑历史
 - 更新后重新计算 `is_complete`
 
+```python
+def append_to_session(session_id: str, field: str, text: str) -> None
+```
+
+- 仅允许 `visibility == "pending_unlock"` 的记录
+- `field` 仅允许 `FIELD_SCHEMA` 中的文本类字段：`description` / `feeling` / `reason`
+- 将 `text` 追加到原字段内容之后，并写入稳定的「追加于 时间」分隔标记
+- 不写入 `edit_history`
+- 更新后重新计算 `is_complete`
+- 若记录已归档，会同步重写对应 `.md`
+- 记录不存在、非 `pending_unlock`、字段不可追加或追加内容为空时抛 `ValueError`
+
 ---
 
 ### `backend/application/sessions/sharing.py` — 共享与可见性控制
@@ -181,9 +193,33 @@ def request_unlock(session_id: str, unlock_at: str) -> None
 - `unlock_at` 必填，格式与 `now_str()` 一致：`%Y-%m-%d %H:%M:%S`
 - 若记录当前为 `private`：
   - 写入 `unlock_requested_at = now`
-  - 写入 `unlock_at = unlock_at`
-  - 当 `unlock_at <= now` 时直接进入 `shared`，并写入 `shared_at = now`
+  - 当 `unlock_at <= now` 时直接进入 `shared`，并写入 `shared_at = now`、`unlock_at = now`
   - 当 `unlock_at > now` 时进入 `pending_unlock`
+
+```python
+def unlock_now(session_id: str) -> None
+```
+
+- 仅允许 `visibility == "pending_unlock"` 的记录
+- 行为：
+  - `visibility -> "shared"`
+  - 写入 `shared_at = now`
+  - 写入 `unlock_at = now`，保证实际共享时间与开放时间一致
+- 保留原有 `unlock_requested_at`
+- 记录不存在或非 `pending_unlock` 时抛 `ValueError`
+
+```python
+def reschedule_unlock(session_id: str, new_unlock_at: str) -> None
+```
+
+- 仅允许 `visibility == "pending_unlock"` 的记录
+- `new_unlock_at` 格式与 `now_str()` 一致：`%Y-%m-%d %H:%M:%S`
+- 当 `new_unlock_at > now`：
+  - 仅更新 `unlock_at = new_unlock_at`
+  - `visibility` 保持 `pending_unlock`
+  - `unlock_requested_at` 保持不变
+- 当 `new_unlock_at <= now`：等同 `unlock_now()`，立即进入 `shared`
+- 记录不存在、非 `pending_unlock` 或时间格式无效时抛 `ValueError`
 
 ```python
 def revoke_unlock(session_id: str) -> None
