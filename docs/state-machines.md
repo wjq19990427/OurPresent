@@ -9,20 +9,22 @@
 [private]  ←────────── 撤回申请（revoke_unlock）
   │
   │ 用户点击「申请共享」（request_unlock）
+  │ 用户在 7 档预设或日历中自选开放时间，写入 SessionRecord.unlock_at
   ▼
-[pending_unlock]
+[pending_unlock] ─── 可追加内容 / 改时间 / 立即解锁 / 撤回
   │
   │ application.maintenance.tick() 检查：
-  │ now() - upload_time ≥ 90 天
+  │ now() >= unlock_at
   ▼
-[shared] ──▶ 伴侣在「情侣空间」可见
+[shared] ──▶ 双方在「🏠 我们」可见，且 unlock_at == shared_at
 ```
 
 **关键约束**
 
-- 解锁等待基于 `upload_time`（内容上传时间），而非 `unlock_requested_at`（申请时间）
-- 无法通过提前申请绕过 90 天限制
-- `pending_unlock` 阶段可随时撤回，不影响 90 天计时；下次重新申请时，已流逝时间仍计入
+- 解锁推进基于 `SessionRecord.unlock_at`（用户在申请时自选）
+- 申请共享时可选：立即 / 1 天 / 3 天 / 1 周 / 1 个月 / 90 天 / 自定义日期；默认 1 周
+- `pending_unlock` 阶段可追加内容、改 `unlock_at`、立即解锁、撤回；「修改时间」「立即解锁」需勾选二次确认
+- 不变量：`status == "shared"` 时 `unlock_at == shared_at`，由 `request_unlock` / `unlock_now` / `reschedule_unlock` 三条路径共同保证
 
 ---
 
@@ -58,7 +60,9 @@ confirm_uncouple(user_id)
 
 ### 数据导出规则
 
-导出仅包含：`session.user_id == 当前用户` 的所有 session 的文件（不含对方记录、AI 生成报告）。
+导出仅包含：`session.user_id == 当前用户` 的所有 session 的文件（不含对方记录）。
+
+> 当前实现尚未包含情感周报历史的导出（设计中预期 `export_couple_data()` 应输出 `reports.json`，待后续任务落地）。
 
 ---
 

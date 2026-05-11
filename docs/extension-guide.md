@@ -95,43 +95,58 @@ if __name__ == "__main__":
 
 ---
 
-## 第二阶段接口预留
+## 第二阶段 · 情感周报已落地（v3.0.0）
 
-第一阶段已为 AI 智能体接入预留完整边界：
+情感周报已于 v3.0.0 完整落地。详见：
 
-### RAG 向量化接口
+- 设计稿：[`weekly_report.md`](./weekly_report.md)
+- L2 契约：[`api/app_reports.md`](./api/app_reports.md) / [`api/infra_ai.md`](./api/infra_ai.md)
+- Opus 复审与技术债：[`phase2_audit.md`](./phase2_audit.md)
 
-每条 Session 包含以下可作为 Chunk + Metadata 的字段：
+### 已实现的数据采样接口
 
-| 字段 | RAG 用途 |
-|------|----------|
-| `description` | 主要文本 Chunk（文件型必填） |
-| `feeling` | 情感 Metadata |
-| `content_time` | 时间 Metadata |
-| `visibility` | 过滤条件（**只允许检索 `shared` 记录**） |
-| `couple_id` | 关系域隔离 |
-| `user_id` | 作者标识 |
-| `shared_at` | 共享时间 Metadata |
-
-**检索过滤规则（情感周报 Agent 必须遵守）**：
+`backend/infrastructure/ai/agent_skills.py`：
 
 ```python
-# backend/infrastructure/ai/agent_skills.py 已实现此过滤
-rag_chunks = [
-    s for s in db["sessions"]
-    if s.get("couple_id") == target_couple_id
-    and s.get("visibility") == "shared"
-]
+def get_shared_sessions_for_rag(
+    couple_id: str,
+    window: tuple[datetime, datetime] | None = None,
+) -> list[dict]
 ```
 
-### 智能体 System Prompt 约束（备忘）
+- 仅返回 `visibility == "shared"` 的 session
+- 传 `window` 时按 `shared_at ∈ [start, end]` 过滤
+- 字段未脱敏，由 application 层（如 `reports/semantic.py`）负责按白名单截字段后才传给 LLM
 
-实时情感助手接入时，System Prompt 需包含：
+### LLM 输入字段白名单（已固化）
+
+`backend/application/reports/semantic.py` 严格只把以下字段送入 LLM：
+
+| 字段 | 用途 |
+|------|------|
+| `description` | 主要文本 |
+| `feeling` | 情感 Metadata |
+| `content_time` | 时间 Metadata |
+| `user_id` | 作者标识（用于同日共鸣分组） |
+
+明确**不传**：`session_id` / `couple_id` / 文件路径 / 文件名（防 LLM 回写引用与跨域污染）。
+
+### 反原文引用兜底（已实现）
+
+`backend/application/reports/guard.py` 对生成结果做最长公共子串检测：
+- `weather.narrative` 与所有 `resonance.*.excerpt`
+- 对照 source sessions 的 `description + feeling` 拼接语料
+- 单一连续重合 ≥ 12 字符 → 整份 report 标 `status="failed"`，不展示
+
+### 后续 AI 模块的 System Prompt 约束（备忘）
+
+实时情感助手 / NVC 润色器接入时，System Prompt 仍需遵守：
 
 - 禁止对双方行为做对错判断
 - 回复格式强制遵循「观察 → 感受 → 需要 → 请求」四步结构（NVC 框架）
 - 仅允许引用 `visibility == "shared"` 的数据，不得访问私密记录
 - 不得在回复中具体引用对方记录的原文（防止隐私泄露）
+- 字段白名单与 `reports/semantic.py` 对齐；切勿放宽
 
 ---
 

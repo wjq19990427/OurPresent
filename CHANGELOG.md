@@ -6,13 +6,51 @@
 
 ## [Unreleased]
 
-- task-11：UI 收尾落地（报告渲染迁至 components / 9 行状态矩阵 / 历史入口 / 频率文案 / frozen 只读）；情感周报功能阶段性完整
-- task-10：cron 自动触发落地（scheduling 纯函数 + tick() 扩展 + 失败重试 + 冻结期跳过）
-- task-9：DeepSeek 接入 + 生成 pipeline 落地（llm_client / semantic / guard / generate）；临时手动按钮；四模块真实渲染；隐私字段白名单测试覆盖
-- task-8：metrics + 服务开关 UI 落地（`compute_footprint` / `compute_suspense` / `service_active_for_couple` / 「设置」服务 section / 「我们」占位区 4 分支）；DeepSeek API key 配置就绪
-- task-7：情感周报数据底座落地（`Report` dataclass + `reports` 表 + `User`/`Couple` 周报字段 + repository + destruction 联动 + 旧 schema 升级测试覆盖）
-- Phase 2 情感周报设计闭环 + task-7~11 任务卡入库：DeepSeek V4 Flash 接入、双方协议制服务开关、couple 级频率、sparse 入库、临时手动测试按钮
-- Phase 2 情感周报工程设计稿入库（`docs/weekly_report.md`）：NVC 四模块切分、Pipeline 七阶段、隐私三层约束 + 反原文兜底校验
+## [v3.0.0] - 2026-05-11
+
+### Phase 2 · AI 情感周报上线（核心）
+
+阶段性里程碑：第二阶段第一个 AI 模块完整落地。本版本将 Phase 2 第一个智能体（情感周报）从设计稿推到端到端可用，是项目从「双人记录工具」迈向「客观情感记录者」的关键一步。
+
+**功能**
+
+- **NVC 四模块周报**：关系足迹 / 情绪气象 / 同频共鸣 / 未尽悬念，温和陈述不评判，不替任何一方下判断
+- **双方协议制服务开关**：双方都在「设置」开启「情感周报服务」才生成；未开启侧文案温和邀请，不催促
+- **频率可调**：couple 级共享配置 `weekly_report_interval_days`，默认 7 天，可选 7 / 14 / 30
+- **自动触发**：`tick()` 按节律自动生成；上次失败下次重试一次；冻结期跳过
+- **数据稀疏兜底**：窗口内 < 3 条共享时生成 sparse 报告（仅 footprint），不调 LLM，UI 给温和说明
+- **历史可读**：「设置 → 查看周报历史」展示所有 ready / sparse 报告
+
+**隐私三层约束**
+
+1. **数据访问**：唯一入口 `get_shared_sessions_for_rag(couple_id, window)`，永不读 private / pending_unlock
+2. **LLM 输入字段白名单**：`description / feeling / content_time / user_id`，不传 `session_id` / 文件路径 / `couple_id`
+3. **反原文引用兜底**：LCS 阈值 12 字符，命中则 report 标 `status="failed"` 不展示
+
+**工程**
+
+- LLM 接入：DeepSeek V4 Flash，裸 urllib + 手写 `.env` 解析，零额外依赖
+- 新模块：`backend/application/reports/{metrics,policies,query,semantic,guard,generate,scheduling,errors}.py` + `backend/infrastructure/ai/llm_client.py`
+- 新表：`reports`（JSON blob 拆 4 列），`User.weekly_report_enabled` / `Couple.weekly_report_interval_days` 经 `_migrate_db` ALTER 兼容旧库
+- `destroy_couple_data` 联动清理 reports，关系结束时不留残余
+- 测试覆盖：57 个新增测试用例，含「字段白名单隐私验证」spy 测试与「旧 schema 升级路径」迁移测试
+- 临时调试入口「🧪 立即生成周报」保留至 cron 验证稳定，将由架构师另开任务删除
+
+**文档**
+
+- 新增 `docs/AI.md` 产品愿景（NVC 镜子定调）
+- 新增 `docs/weekly_report.md` 工程设计稿（Pipeline 七阶段 / 隐私三层约束 / 8 项决策闭环）
+- 新增 `docs/phase2_audit.md` Opus 复审技术债清单（13 项）
+- 新增 `docs/api/app_reports.md` / 扩展 `docs/api/infra_ai.md`
+- 同步更新 README / PRD / ARCHITECTURE / state-machines / user-guide / extension-guide
+
+**已知技术债（已记入 `docs/phase2_audit.md`，不阻断本次发版）**
+
+- `tick()` → `generate_weekly_report` 嵌套 `load_db/save_db` 的非原子风险
+- `compute_footprint` 对缺失 `shared_at` 的静默放行
+- `resonance` user_a/b 列与 `Couple.user_a/b` 字典序非对齐
+- `DEEPSEEK_BASE_URL` 缺少 `https://` 强制校验
+- guard 阈值 12 字符为经验值，待真实语料校准
 
 ## [v2.4.0] - 2026-05-11
 
