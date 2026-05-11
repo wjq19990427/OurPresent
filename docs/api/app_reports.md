@@ -173,6 +173,33 @@ class ReportGenerationError(RuntimeError)
 
 ---
 
+### `backend/application/reports/scheduling.py` — 周报调度判定
+
+```python
+def previous_report_window_end(couple_id: str, db: dict) -> datetime | None
+```
+
+- 在传入的整库 `db` 中查找该 couple 最新 report
+- “最新”按 `window_end` 优先、`generated_at` 次序比较
+- 返回最新 report 的 `window_end`；无 report 或时间无法解析时返回 `None`
+- 不写库、不调用外部服务
+
+```python
+def should_generate_for_couple(couple: Couple, db: dict, now: datetime) -> bool
+```
+
+- 纯判定函数，只读取入参，不写库、不调用外部服务
+- 返回 `True` 的条件：
+  - `couple.couple_status == "active"`
+  - 双方 `User.weekly_report_enabled` 都为 `True`
+  - 上次 report 为 `failed` 且对应 retry 标记未消耗，允许下一次 tick 重试一次
+  - 或 `now >= previous_window_end + Couple.weekly_report_interval_days`
+  - 首次无 report 时，使用 `Couple.created_at` 作为稳定锚点；当前模型没有双方开启时间字段，因此服务开关仍作为前置条件，但不改变首次锚点
+- tick 将进程内 retry 标记通过 `db["_weekly_report_retry_consumed"]` 提供给该纯函数；标记不属于持久化 L2 数据模型
+- `frozen` / `dissolved` / `pending_bind` 或任一方关闭服务时始终返回 `False`
+
+---
+
 ### `backend/application/reports/semantic.py` — 语义抽取
 
 ```python
