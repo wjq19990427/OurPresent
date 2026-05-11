@@ -31,7 +31,7 @@ task-7 / task-8 已把不依赖 LLM 的部分跑通。本任务接入 DeepSeek V
 - `backend/tests/`：补 generate 全链路（mock LLM）、guard 边界、agent_skills window 过滤的测试
 - `docs/api/app_reports.md` / `docs/api/infra_ai.md` / `docs/api/frontend_streamlit.md`
 - 项目根 `pyproject.toml` / `uv.lock`：按需引入 DeepSeek 客户端依赖
-- `.env.example`（新增或更新）：写出 DeepSeek API key 环境变量名
+- `.env.example`（新增或更新）：写出 `DEEPSEEK_API_KEY=` 占位（值留空）
 
 **不许动**：
 
@@ -54,7 +54,7 @@ def compose_weather_narrative(tags: list[EmotionTag]) -> str
 ```
 
 - 三个函数封装 DeepSeek 调用，统一负责：API key 读取、请求构造、超时、错误捕获、结构化输出解析
-- API key 通过环境变量传入，变量名由实现工选定后写进 `.env.example` 与 L2 文档
+- API key 通过环境变量 **`DEEPSEEK_API_KEY`** 读取（已写入项目根 `.env`，gitignored）；`.env.example` 写出变量名占位，不写真实 key
 - 失败时抛 `LLMClientError`（在 `llm_client.py` 内部定义），上层 generate 据此判 status=failed
 - `EmotionTag` / `ResonanceCandidate` / `ResonanceItem` 是 dataclass 或 TypedDict，结构对齐设计稿 §3 字段（label/weight/phase；day/topic/excerpt）
 
@@ -171,4 +171,4 @@ def generate_weekly_report(
 - `docs/api/app_reports.md`：补 generate / semantic / guard / errors 章节
 - `docs/api/infra_ai.md`：补 `llm_client.py` 整章；`get_shared_sessions_for_rag` 签名更新
 - `docs/api/frontend_streamlit.md`：「我们」tab 占位区改为真实渲染描述 + 临时按钮说明（强调将被删除）
-- `.env.example` / README 顶部：DeepSeek API key 环境变量说明（README 简略写一行即可，详见 §6 改 README 的边界）
+- `.env.example`：新增 `DEEPSEEK_API_KEY=` 占位；README 顶部补一行「需 `.env` 中配置 `DEEPSEEK_API_KEY`」（详见 CLAUDE.md §6 README 维护边界）
