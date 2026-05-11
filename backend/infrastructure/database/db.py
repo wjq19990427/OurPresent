@@ -1,4 +1,4 @@
-"""Low-level SQLite database helpers with legacy JSON migration support."""
+"""Low-level SQLite database helpers."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Iterator
 
-from backend.config.settings import DATA_DIR, DB_PATH, FINAL_DIR, LEGACY_DB_PATH, PENDING_DIR
+from backend.config.settings import DATA_DIR, DB_PATH, FINAL_DIR, PENDING_DIR
 
 EMPTY_DB: dict = {"users": [], "couples": [], "sessions": [], "auth_tokens": []}
 
@@ -89,9 +89,6 @@ def _decode_json_list(value: str | None) -> list[dict]:
 
 
 def _normalize_db(raw: object) -> dict:
-    if isinstance(raw, list):
-        return {"users": [], "couples": [], "sessions": raw, "auth_tokens": []}
-
     if not isinstance(raw, dict):
         return {key: list(value) for key, value in EMPTY_DB.items()}
 
@@ -125,36 +122,9 @@ def _is_initialized() -> bool:
     return DB_PATH.exists()
 
 
-def _has_any_data() -> bool:
-    with _conn() as conn:
-        for table in ("users", "couples", "sessions", "auth_tokens"):
-            row = conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone()
-            if row is not None:
-                return True
-    return False
-
-
-def _load_legacy_json() -> dict | None:
-    if not LEGACY_DB_PATH.exists():
-        return None
-    try:
-        raw = json.loads(LEGACY_DB_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
-    return _normalize_db(raw)
-
-
-def _migrate_legacy_json_if_needed() -> None:
-    legacy = _load_legacy_json()
-    if legacy is None or _has_any_data():
-        return
-    _write_db(_normalize_db(legacy))
-
-
 def _ensure_ready() -> None:
     if not _is_initialized():
         _init_db()
-    _migrate_legacy_json_if_needed()
 
 
 def _session_row_to_dict(row: sqlite3.Row) -> dict:

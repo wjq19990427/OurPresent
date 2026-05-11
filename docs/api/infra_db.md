@@ -1,13 +1,13 @@
 ### `backend/infrastructure/database/db.py` — 底层 SQLite 读写
 
-负责最底层的 SQLite 文件访问、旧 JSON 自动迁移、目录初始化和通用时间工具。
+负责最底层的 SQLite 文件访问、目录初始化和通用时间工具。
 
 ```python
 EMPTY_DB: dict = {"users": [], "couples": [], "sessions": [], "auth_tokens": []}
 ```
 
 - 空数据库结构常量
-- 用于空库、旧格式兼容或迁移失败时的默认返回值
+- 用于空库初始化时的默认返回值
 
 ```python
 def now_str() -> str
@@ -30,9 +30,6 @@ def load_db() -> dict
 - 读取 `data/database.db`
 - 返回顶层包含 `users`、`couples`、`sessions`、`auth_tokens` 的字典
 - 若 SQLite 文件不存在，会自动初始化 schema
-- 若发现旧版 `data/db.json`，会在空库时自动迁移
-- 若读到旧版“纯 sessions 数组”结构，自动兼容为新顶层对象后迁入 SQLite
-- 若旧 JSON 损坏或读文件失败，回退为空结构
 
 ```python
 def save_db(data: dict) -> None

@@ -40,8 +40,6 @@ uv sync
 uv run streamlit run main.py
 ```
 
-旧版本如果仍有 `data/db.json`，启动时会自动迁移到 `data/database.db`。
-
 常用开发命令：
 
 ```bash

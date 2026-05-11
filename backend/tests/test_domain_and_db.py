@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import sqlite3
 
 from backend.domain.models import AuthToken, Couple, SessionRecord, User
@@ -44,33 +43,6 @@ def test_domain_models_round_trip() -> None:
 
 def test_load_db_returns_empty_when_missing() -> None:
     assert db_module.load_db() == db_module.EMPTY_DB
-
-
-def test_load_db_migrates_legacy_session_list_format() -> None:
-    db_module.LEGACY_DB_PATH.write_text(json.dumps([{"session_id": "sess_1"}]), encoding="utf-8")
-
-    db = db_module.load_db()
-
-    assert db["users"] == []
-    assert db["couples"] == []
-    assert db["auth_tokens"] == []
-    assert len(db["sessions"]) == 1
-    assert db["sessions"][0]["session_id"] == "sess_1"
-    assert db["sessions"][0]["status"] == "pending"
-    assert db["sessions"][0]["visibility"] == "private"
-    assert db_module.DB_PATH.exists()
-
-
-def test_load_db_recovers_from_invalid_legacy_json_and_missing_auth_tokens() -> None:
-    db_module.LEGACY_DB_PATH.write_text("{bad json", encoding="utf-8")
-    assert db_module.load_db() == db_module.EMPTY_DB
-
-    db_module.LEGACY_DB_PATH.write_text(
-        json.dumps({"users": [], "couples": [], "sessions": []}),
-        encoding="utf-8",
-    )
-    db_module.DB_PATH.unlink(missing_ok=True)
-    assert db_module.load_db()["auth_tokens"] == []
 
 
 def test_save_db_and_ensure_dirs_persist_data() -> None:

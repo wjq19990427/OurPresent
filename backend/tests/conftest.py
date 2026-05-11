@@ -16,7 +16,6 @@ def isolated_storage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     pending_dir = assets_dir / "Pending"
     final_dir = assets_dir / "Final"
     db_path = data_dir / "database.db"
-    legacy_db_path = data_dir / "db.json"
 
     for path in (data_dir, pending_dir, final_dir):
         path.mkdir(parents=True, exist_ok=True)
@@ -25,13 +24,11 @@ def isolated_storage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         (settings, "BASE_DIR", tmp_path),
         (settings, "DATA_DIR", data_dir),
         (settings, "DB_PATH", db_path),
-        (settings, "LEGACY_DB_PATH", legacy_db_path),
         (settings, "ASSETS_DIR", assets_dir),
         (settings, "PENDING_DIR", pending_dir),
         (settings, "FINAL_DIR", final_dir),
         (db_module, "DATA_DIR", data_dir),
         (db_module, "DB_PATH", db_path),
-        (db_module, "LEGACY_DB_PATH", legacy_db_path),
         (db_module, "PENDING_DIR", pending_dir),
         (db_module, "FINAL_DIR", final_dir),
         (creation, "PENDING_DIR", pending_dir),
