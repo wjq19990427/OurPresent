@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from backend.application.sessions.comments import add_comment, delete_comment
@@ -16,6 +17,7 @@ from backend.infrastructure.database.sessions_repo import (
     replace_session,
 )
 from backend.infrastructure.database.users_repo import create_user, update_user
+from frontend.streamlit_app.components import _unlock_at_for_choice
 
 
 def _session_record(**fields: object) -> SessionRecord:
@@ -26,6 +28,7 @@ def _session_record(**fields: object) -> SessionRecord:
         "status": "pending",
         "visibility": "private",
         "unlock_requested_at": None,
+        "unlock_at": None,
         "shared_at": None,
         "upload_time": "2026-05-01 10:00:00",
         "archive_time": "",
@@ -111,6 +114,7 @@ def test_move_to_final_moves_pending_files_and_writes_markdown() -> None:
         status="pending",
         visibility="private",
         unlock_requested_at=None,
+        unlock_at=None,
         shared_at=None,
         upload_time="2026-05-01 10:00:00",
         archive_time="",
@@ -141,6 +145,7 @@ def test_update_session_fields_records_history_for_final_non_text() -> None:
         status="final",
         visibility="private",
         unlock_requested_at=None,
+        unlock_at=None,
         shared_at=None,
         upload_time="2026-05-01 10:00:00",
         archive_time="2026-05-01 11:00:00",
@@ -170,6 +175,7 @@ def test_update_session_fields_skips_text_description_history() -> None:
         status="final",
         visibility="private",
         unlock_requested_at=None,
+        unlock_at=None,
         shared_at=None,
         upload_time="2026-05-01 10:00:00",
         archive_time="2026-05-01 11:00:00",
@@ -199,6 +205,7 @@ def test_comments_add_and_delete_rewrite_markdown(tmp_path: Path) -> None:
         status="final",
         visibility="private",
         unlock_requested_at=None,
+        unlock_at=None,
         shared_at=None,
         upload_time="2026-05-01 10:00:00",
         archive_time="2026-05-01 11:00:00",
@@ -236,6 +243,7 @@ def test_sharing_and_view_permissions() -> None:
         status="final",
         visibility="private",
         unlock_requested_at=None,
+        unlock_at=None,
         shared_at=None,
         upload_time="2026-05-01 10:00:00",
         archive_time="2026-05-01 11:00:00",
@@ -249,21 +257,54 @@ def test_sharing_and_view_permissions() -> None:
     assert can_view_session(stored, partner.user_id) is False
     assert can_view_session(stored, outsider.user_id) is False
 
-    request_unlock("session_5")
+    unlock_at = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+    request_unlock("session_5", unlock_at)
     stored = get_session_by_id("session_5")
     assert stored is not None
     assert stored.visibility == "pending_unlock"
     assert stored.unlock_requested_at
+    assert stored.unlock_at == unlock_at
 
     revoke_unlock("session_5")
     stored = get_session_by_id("session_5")
     assert stored is not None
     assert stored.visibility == "private"
     assert stored.unlock_requested_at is None
+    assert stored.unlock_at is None
 
     stored.visibility = "shared"
     replace_session(stored)
     assert can_view_session(stored, partner.user_id) is True
+
+
+def test_request_unlock_immediate_shares_without_pending_snapshot() -> None:
+    session = _session_record(session_id="session_now", status="final")
+    add_session(session)
+    past = (datetime.now() - timedelta(seconds=1)).strftime("%Y-%m-%d %H:%M:%S")
+
+    request_unlock("session_now", past)
+
+    stored = get_session_by_id("session_now")
+    assert stored is not None
+    assert stored.visibility == "shared"
+    assert stored.unlock_requested_at
+    assert stored.unlock_at == past
+    assert stored.shared_at
+
+
+def test_unlock_choice_defaults_and_custom_dates() -> None:
+    anchor = datetime(2026, 5, 11, 9, 30, 0)
+
+    assert _unlock_at_for_choice("1 周后", anchor=anchor) == "2026-05-18 09:30:00"
+    assert _unlock_at_for_choice("立即", anchor=anchor) == "2026-05-11 09:30:00"
+    assert (
+        _unlock_at_for_choice("自定义日期", date(2026, 5, 20), anchor)
+        == "2026-05-20 09:30:00"
+    )
+    assert (
+        _unlock_at_for_choice("自定义日期", date(2026, 5, 11), anchor)
+        == "2026-05-11 09:30:00"
+    )
 
 
 def test_collect_export_files_returns_only_existing_paths(tmp_path: Path) -> None:
@@ -277,6 +318,7 @@ def test_collect_export_files_returns_only_existing_paths(tmp_path: Path) -> Non
         status="final",
         visibility="private",
         unlock_requested_at=None,
+        unlock_at=None,
         shared_at=None,
         upload_time="2026-05-01 10:00:00",
         archive_time="2026-05-01 11:00:00",

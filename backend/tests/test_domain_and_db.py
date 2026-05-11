@@ -26,6 +26,7 @@ def test_domain_models_round_trip() -> None:
         status="final",
         visibility="shared",
         unlock_requested_at=None,
+        unlock_at=None,
         shared_at="2026-05-01 12:00:00",
         upload_time="2026-05-01 10:00:00",
         archive_time="2026-05-01 11:00:00",
@@ -38,6 +39,7 @@ def test_domain_models_round_trip() -> None:
     assert User.from_dict(user.to_dict()) == user
     assert Couple.from_dict(couple.to_dict()) == couple
     assert SessionRecord.from_dict(session.to_dict()) == session
+    assert SessionRecord.from_dict({**session.to_dict(), "unlock_at": ""}).unlock_at is None
     assert AuthToken.from_dict(token.to_dict()) == token
 
 

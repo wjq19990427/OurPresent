@@ -121,6 +121,7 @@ def test_confirm_uncouple_destroys_sessions_and_clears_users(tmp_path: Path) -> 
             status="final",
             visibility="shared",
             unlock_requested_at=None,
+            unlock_at=None,
             shared_at="2026-05-01 12:00:00",
             upload_time="2026-05-01 10:00:00",
             archive_time="2026-05-01 11:00:00",

@@ -15,7 +15,6 @@ from backend.infrastructure.media import thumbnails
 
 
 def test_tick_unlocks_sessions_and_cleans_expired_tokens() -> None:
-    old_upload = (datetime.now() - timedelta(days=91)).strftime("%Y-%m-%d %H:%M:%S")
     future = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
     past = (datetime.now() - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
     db = {
@@ -27,7 +26,8 @@ def test_tick_unlocks_sessions_and_cleans_expired_tokens() -> None:
                 "user_id": "usr_1",
                 "couple_id": "cp_1",
                 "visibility": "pending_unlock",
-                "upload_time": old_upload,
+                "unlock_at": past,
+                "upload_time": future,
             }
         ],
         "auth_tokens": [
@@ -42,6 +42,31 @@ def test_tick_unlocks_sessions_and_cleans_expired_tokens() -> None:
     assert db["sessions"][0]["visibility"] == "shared"
     assert db["sessions"][0]["shared_at"]
     assert [token["token"] for token in db["auth_tokens"]] == ["valid"]
+
+
+def test_tick_keeps_future_unlock_pending() -> None:
+    future = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+    db = {
+        "users": [],
+        "couples": [],
+        "sessions": [
+            {
+                "session_id": "session_future",
+                "user_id": "usr_1",
+                "couple_id": "cp_1",
+                "visibility": "pending_unlock",
+                "unlock_at": future,
+                "upload_time": "2026-01-01 10:00:00",
+            }
+        ],
+        "auth_tokens": [],
+    }
+
+    changed = tick(db)
+
+    assert changed is False
+    assert db["sessions"][0]["visibility"] == "pending_unlock"
+    assert db["sessions"][0].get("shared_at") is None
 
 
 def test_load_db_with_tick_persists_frozen_couple_cleanup(tmp_path) -> None:
@@ -84,6 +109,7 @@ def test_load_db_with_tick_persists_frozen_couple_cleanup(tmp_path) -> None:
                     status="final",
                     visibility="shared",
                     unlock_requested_at=None,
+                    unlock_at=None,
                     shared_at="2026-05-01 12:00:00",
                     upload_time="2026-05-01 10:00:00",
                     archive_time="2026-05-01 11:00:00",
@@ -118,6 +144,7 @@ def test_ai_helpers_filter_shared_sessions_and_raise_for_unimplemented_reports()
             status="final",
             visibility="shared",
             unlock_requested_at=None,
+            unlock_at=None,
             shared_at="2026-05-01 12:00:00",
             upload_time="2026-05-01 10:00:00",
             archive_time="2026-05-01 11:00:00",
@@ -132,6 +159,7 @@ def test_ai_helpers_filter_shared_sessions_and_raise_for_unimplemented_reports()
             status="final",
             visibility="private",
             unlock_requested_at=None,
+            unlock_at=None,
             shared_at=None,
             upload_time="2026-05-01 10:00:00",
             archive_time="2026-05-01 11:00:00",

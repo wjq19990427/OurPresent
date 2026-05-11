@@ -24,6 +24,7 @@ def _build_session_base(user_id: str, couple_id: Optional[str]) -> SessionRecord
         status="pending",
         visibility="private",
         unlock_requested_at=None,
+        unlock_at=None,
         shared_at=None,
         upload_time=now.strftime("%Y-%m-%d %H:%M:%S"),
         archive_time="",

@@ -196,6 +196,12 @@ def revoke_auth_token(token: str) -> None
 
 负责 `SessionRecord` 的最小持久化操作。
 
+`sessions` 表与 `SessionRecord` 同步保存共享时间字段：
+
+- `unlock_requested_at TEXT`：申请共享时间
+- `unlock_at TEXT`：用户指定开放时间，旧记录可为空
+- `shared_at TEXT`：实际共享时间
+
 ```python
 def add_session(session: SessionRecord) -> None
 ```

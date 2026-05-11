@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from backend.domain.models import SessionRecord
-from backend.infrastructure.database.db import now_str
+from backend.infrastructure.database.db import now_str, parse_dt
 from backend.infrastructure.database.sessions_repo import get_session_by_id, replace_session
 from backend.infrastructure.database.users_repo import get_user_by_id
 
@@ -19,11 +19,19 @@ def can_view_session(session: SessionRecord, viewer_id: str) -> bool:
     return session.visibility == "shared"
 
 
-def request_unlock(session_id: str) -> None:
+def request_unlock(session_id: str, unlock_at: str) -> None:
     session = get_session_by_id(session_id)
     if session and session.visibility == "private":
-        session.visibility = "pending_unlock"
-        session.unlock_requested_at = now_str()
+        now = now_str()
+        session.unlock_requested_at = now
+        session.unlock_at = unlock_at
+        unlock_dt = parse_dt(unlock_at)
+        now_dt = parse_dt(now)
+        if unlock_dt and now_dt and unlock_dt <= now_dt:
+            session.visibility = "shared"
+            session.shared_at = now
+        else:
+            session.visibility = "pending_unlock"
         replace_session(session)
 
 
@@ -32,4 +40,5 @@ def revoke_unlock(session_id: str) -> None:
     if session and session.visibility == "pending_unlock":
         session.visibility = "private"
         session.unlock_requested_at = None
+        session.unlock_at = None
         replace_session(session)

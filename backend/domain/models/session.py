@@ -13,6 +13,7 @@ class SessionRecord:
     status: str
     visibility: str
     unlock_requested_at: str | None
+    unlock_at: str | None
     shared_at: str | None
     upload_time: str
     archive_time: str
@@ -35,6 +36,7 @@ class SessionRecord:
             status=data.get("status", "pending"),
             visibility=data.get("visibility", "private"),
             unlock_requested_at=data.get("unlock_requested_at"),
+            unlock_at=data.get("unlock_at") or None,
             shared_at=data.get("shared_at"),
             upload_time=data.get("upload_time", ""),
             archive_time=data.get("archive_time", ""),

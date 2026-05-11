@@ -52,7 +52,19 @@ def _session_thumb(session: SessionRecord)
 def _days_until_unlock(session: SessionRecord) -> int
 ```
 
-- 基于 `upload_time` 计算距离满 90 天还剩几天
+- 基于 `unlock_at` 计算距离开放还剩几天
+
+```python
+def _unlock_at_for_choice(
+    choice: str,
+    custom_date: date | None = None,
+    anchor: datetime | None = None,
+) -> str
+```
+
+- 将申请共享 UI 的档位转换为 `unlock_at` 字符串
+- 支持：立即、1 天后、3 天后、1 周后、1 个月后、90 天后、自定义日期
+- `anchor` 默认为按钮按下时的当前时间
 
 ```python
 def _visibility_badge(session: SessionRecord) -> str
@@ -131,6 +143,7 @@ def render_detail(session: SessionRecord, mode: str, read_only: bool = False) ->
 - `read_only=False` 时可编辑字段
 - `mode="pending"` 时支持“完成并归档”
 - 自己的记录可申请共享或撤回共享
+- 申请共享时默认选中“1 周后”，可选择“立即”、预设天数或日历自定义日期；最终调用 `request_unlock(session_id, unlock_at)`
 - 纯文字记录的 `description` 不可手动修改
 
 ---

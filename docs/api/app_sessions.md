@@ -175,18 +175,22 @@ def can_view_session(session: SessionRecord, viewer_id: str) -> bool
   - 其余情况下，仅 `visibility == "shared"` 时返回 `True`
 
 ```python
-def request_unlock(session_id: str) -> None
+def request_unlock(session_id: str, unlock_at: str) -> None
 ```
 
-- 将记录从 `private` 改为 `pending_unlock`
-- 写入 `unlock_requested_at`
+- `unlock_at` 必填，格式与 `now_str()` 一致：`%Y-%m-%d %H:%M:%S`
+- 若记录当前为 `private`：
+  - 写入 `unlock_requested_at = now`
+  - 写入 `unlock_at = unlock_at`
+  - 当 `unlock_at <= now` 时直接进入 `shared`，并写入 `shared_at = now`
+  - 当 `unlock_at > now` 时进入 `pending_unlock`
 
 ```python
 def revoke_unlock(session_id: str) -> None
 ```
 
 - 将记录从 `pending_unlock` 撤回为 `private`
-- 清空 `unlock_requested_at`
+- 清空 `unlock_requested_at` 和 `unlock_at`
 
 ---
 

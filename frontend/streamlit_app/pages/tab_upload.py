@@ -28,6 +28,7 @@ def _validation_record(
         status="pending",
         visibility="private",
         unlock_requested_at=None,
+        unlock_at=None,
         shared_at=None,
         upload_time="",
         archive_time="",

@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     status TEXT NOT NULL,
     visibility TEXT NOT NULL,
     unlock_requested_at TEXT,
+    unlock_at TEXT,
     shared_at TEXT,
     upload_time TEXT NOT NULL,
     archive_time TEXT NOT NULL,
@@ -118,6 +119,17 @@ def _init_db() -> None:
         conn.executescript(_SCHEMA)
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
+def _migrate_db() -> None:
+    with sqlite3.connect(DB_PATH) as conn:
+        _ensure_column(conn, "sessions", "unlock_at", "TEXT")
+
+
 def _is_initialized() -> bool:
     return DB_PATH.exists()
 
@@ -125,6 +137,7 @@ def _is_initialized() -> bool:
 def _ensure_ready() -> None:
     if not _is_initialized():
         _init_db()
+    _migrate_db()
 
 
 def _session_row_to_dict(row: sqlite3.Row) -> dict:
@@ -135,6 +148,7 @@ def _session_row_to_dict(row: sqlite3.Row) -> dict:
         "status": row["status"],
         "visibility": row["visibility"],
         "unlock_requested_at": row["unlock_requested_at"],
+        "unlock_at": row["unlock_at"],
         "shared_at": row["shared_at"],
         "upload_time": row["upload_time"],
         "archive_time": row["archive_time"],
@@ -247,11 +261,11 @@ def _write_db(normalized: dict) -> None:
             """
             INSERT INTO sessions (
                 session_id, user_id, couple_id, status, visibility,
-                unlock_requested_at, shared_at, upload_time, archive_time, is_complete,
+                unlock_requested_at, unlock_at, shared_at, upload_time, archive_time, is_complete,
                 source_type, content_time, description, feeling, reason,
                 edit_history_json, files_json, comments_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -261,6 +275,7 @@ def _write_db(normalized: dict) -> None:
                     session.get("status", "pending"),
                     session.get("visibility", "private"),
                     session.get("unlock_requested_at"),
+                    session.get("unlock_at"),
                     session.get("shared_at"),
                     session.get("upload_time", ""),
                     session.get("archive_time", ""),

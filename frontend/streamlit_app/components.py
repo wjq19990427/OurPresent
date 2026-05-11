@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import replace
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -29,6 +29,24 @@ from backend.infrastructure.database.couples_repo import get_couple_for_user
 from backend.infrastructure.database.db import parse_dt
 from backend.infrastructure.database.users_repo import get_user_by_id
 from backend.infrastructure.media import pil_to_png_bytes, video_thumbnail
+
+_UNLOCK_PRESETS = (
+    "立即",
+    "1 天后",
+    "3 天后",
+    "1 周后",
+    "1 个月后",
+    "90 天后",
+    "自定义日期",
+)
+
+_UNLOCK_PRESET_DAYS = {
+    "1 天后": 1,
+    "3 天后": 3,
+    "1 周后": 7,
+    "1 个月后": 30,
+    "90 天后": 90,
+}
 
 
 def _current_user() -> Optional[User]:
@@ -80,11 +98,29 @@ def _session_thumb(session: SessionRecord):
 
 
 def _days_until_unlock(session: SessionRecord) -> int:
-    upload_dt = parse_dt(session.upload_time)
-    if not upload_dt:
-        return 90
-    elapsed = (datetime.now() - upload_dt).days
-    return max(0, 90 - elapsed)
+    unlock_dt = parse_dt(session.unlock_at or "")
+    if not unlock_dt:
+        return 0
+    remaining = unlock_dt - datetime.now()
+    return max(0, remaining.days + (1 if remaining.seconds else 0))
+
+
+def _unlock_at_for_choice(
+    choice: str,
+    custom_date: date | None = None,
+    anchor: datetime | None = None,
+) -> str:
+    anchor = anchor or datetime.now()
+    if choice == "立即":
+        return anchor.strftime("%Y-%m-%d %H:%M:%S")
+    if choice == "自定义日期":
+        picked = custom_date or anchor.date()
+        if picked <= anchor.date():
+            return anchor.strftime("%Y-%m-%d %H:%M:%S")
+        unlock_dt = datetime.combine(picked, anchor.time())
+        return unlock_dt.strftime("%Y-%m-%d %H:%M:%S")
+    days = _UNLOCK_PRESET_DAYS[choice]
+    return (anchor + timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _visibility_badge(session: SessionRecord) -> str:
@@ -92,6 +128,8 @@ def _visibility_badge(session: SessionRecord) -> str:
     if visibility == "private":
         return "🔒 私密"
     if visibility == "pending_unlock":
+        if not session.unlock_at:
+            return "⏳ 待解锁（未设置时间）"
         days = _days_until_unlock(session)
         return f"⏳ 待解锁（还需 {days} 天）"
     return "✅ 已共享"
@@ -249,9 +287,27 @@ def render_detail(session: SessionRecord, mode: str, read_only: bool = False) ->
         st.markdown("---")
         st.markdown(f"**隐私状态**：{_visibility_badge(session)}")
         if visibility == "private":
-            if st.button("📤 申请共享给对方（90天后生效）", key=f"unlock_{session.session_id}"):
-                request_unlock(session.session_id)
-                st.success("已申请，满 90 天后对方可见。")
+            unlock_choice = st.selectbox(
+                "对方何时可见",
+                _UNLOCK_PRESETS,
+                index=_UNLOCK_PRESETS.index("1 周后"),
+                key=f"unlock_choice_{session.session_id}",
+            )
+            custom_unlock_date = None
+            if unlock_choice == "自定义日期":
+                custom_unlock_date = st.date_input(
+                    "选择开放日期",
+                    value=datetime.now().date(),
+                    min_value=datetime.now().date(),
+                    key=f"unlock_custom_date_{session.session_id}",
+                )
+            if st.button("📤 申请共享给对方", key=f"unlock_{session.session_id}"):
+                unlock_at = _unlock_at_for_choice(unlock_choice, custom_unlock_date)
+                request_unlock(session.session_id, unlock_at)
+                if parse_dt(unlock_at) and parse_dt(unlock_at) <= datetime.now():
+                    st.success("已共享，对方现在可见。")
+                else:
+                    st.success(f"已申请，对方将在 {unlock_at} 后可见。")
                 st.rerun()
         elif visibility == "pending_unlock":
             if st.button("↩️ 撤回共享申请", key=f"revoke_{session.session_id}"):

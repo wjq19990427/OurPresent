@@ -14,8 +14,8 @@ def tick(db: dict) -> bool:
 
     for session in db["sessions"]:
         if session.get("visibility") == "pending_unlock":
-            upload_dt = parse_dt(session.get("upload_time", ""))
-            if upload_dt and (now - upload_dt).days >= 90:
+            unlock_dt = parse_dt(session.get("unlock_at", ""))
+            if unlock_dt and unlock_dt <= now:
                 session["visibility"] = "shared"
                 session["shared_at"] = now_str()
                 changed = True
