@@ -6,6 +6,7 @@
 
 ## [Unreleased]
 
+- task-9：DeepSeek 接入 + 生成 pipeline 落地（llm_client / semantic / guard / generate）；临时手动按钮；四模块真实渲染；隐私字段白名单测试覆盖
 - task-8：metrics + 服务开关 UI 落地（`compute_footprint` / `compute_suspense` / `service_active_for_couple` / 「设置」服务 section / 「我们」占位区 4 分支）；DeepSeek API key 配置就绪
 - task-7：情感周报数据底座落地（`Report` dataclass + `reports` 表 + `User`/`Couple` 周报字段 + repository + destruction 联动 + 旧 schema 升级测试覆盖）
 - Phase 2 情感周报设计闭环 + task-7~11 任务卡入库：DeepSeek V4 Flash 接入、双方协议制服务开关、couple 级频率、sparse 入库、临时手动测试按钮
