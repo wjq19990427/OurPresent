@@ -1,4 +1,4 @@
-"""Tab 5 - account settings."""
+"""Settings tab."""
 
 from __future__ import annotations
 
@@ -22,11 +22,11 @@ from backend.infrastructure.database.users_repo import get_user_by_id
 from frontend.streamlit_app.components import _couple, _current_user, _partner_id
 
 
-def render_account_tab(db: dict) -> None:
+def render_settings_tab(db: dict) -> None:
     user = _current_user()
     couple = _couple()
 
-    st.markdown("### 我的账户")
+    st.markdown("### 我的资料")
     col_a, col_b = st.columns(2)
     with col_a:
         st.markdown(f"**用户名**：{user.username}")
@@ -68,14 +68,14 @@ def render_account_tab(db: dict) -> None:
                     st.rerun()
         st.divider()
 
-    st.markdown("### 💑 情侣关系")
+    st.markdown("### 💑 伴侣绑定")
 
     if not couple:
         with st.form("bind_form"):
             target_id = st.text_input(
                 "输入伴侣的用户 ID",
                 placeholder="usr_xxxxxxxx",
-                help="让伴侣在「账户」页找到自己的 ID 并告诉你",
+                help="让伴侣在「设置」里找到自己的 ID 并告诉你",
             )
             if st.form_submit_button("发送绑定请求", use_container_width=True, type="primary"):
                 try:
@@ -90,7 +90,7 @@ def render_account_tab(db: dict) -> None:
         if is_sender:
             partner = get_user_by_id(couple.user_b)
             partner_name = partner.username if partner else couple.user_b
-            st.info(f"⌛ 已向 **{partner_name}** 发出绑定请求，等待对方在「账户」页确认……")
+            st.info(f"⌛ 已向 **{partner_name}** 发出绑定请求，等待对方在「设置」里确认……")
         else:
             st.warning(
                 "👆 你收到了绑定邀请，请在上方「收到的绑定请求」区点击 **接受** 或 **拒绝**。"
@@ -103,7 +103,7 @@ def render_account_tab(db: dict) -> None:
         st.success(f"✅ 已与 **{partner_name}** 绑定")
         st.caption(f"绑定时间：{couple.created_at}")
 
-        with st.expander("⚠️ 解除绑定（分手协议）", expanded=False):
+        with st.expander("⚠️ 解除绑定", expanded=False):
             st.warning(
                 (
                     "**单方发起**：进入 90 天冻结期。应用变为只读，"
@@ -114,14 +114,14 @@ def render_account_tab(db: dict) -> None:
             col_single, col_mutual = st.columns(2)
             with col_single:
                 if st.button(
-                    "😔 我要分手（进入冻结期）", use_container_width=True, type="secondary"
+                    "😔 进入冻结期", use_container_width=True, type="secondary"
                 ):
                     start_uncouple(user.user_id)
                     st.warning("已进入冻结期，90 天后数据将被销毁。")
                     st.rerun()
             with col_mutual:
                 if st.button(
-                    "💔 我们双方都同意（立即销毁）", use_container_width=True, type="secondary"
+                    "💔 双方同意立即销毁", use_container_width=True, type="secondary"
                 ):
                     confirm_uncouple(user.user_id)
                     st.error("已销毁全部数据。")

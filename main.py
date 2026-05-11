@@ -20,11 +20,9 @@ from backend.infrastructure.database.couples_repo import get_couple_for_user
 from backend.infrastructure.database.db import ensure_dirs
 from backend.infrastructure.database.users_repo import get_user_by_id
 from frontend.streamlit_app.components import _current_user, _partner_id
-from frontend.streamlit_app.pages.tab_account import render_account_tab
-from frontend.streamlit_app.pages.tab_final import render_archived_tab
-from frontend.streamlit_app.pages.tab_pending import render_pending_tab
-from frontend.streamlit_app.pages.tab_shared import render_shared_tab
-from frontend.streamlit_app.pages.tab_upload import render_upload_tab
+from frontend.streamlit_app.pages.tab_mine import render_mine_tab
+from frontend.streamlit_app.pages.tab_settings import render_settings_tab
+from frontend.streamlit_app.pages.tab_us import render_us_tab
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 页面配置（必须是第一个 Streamlit 调用）
@@ -43,9 +41,8 @@ def _init_state() -> None:
     defaults = {
         "user": None,
         "upload_key": 0,
-        "pending_selected": None,
-        "archived_selected": None,
-        "shared_selected": None,
+        "us_selected": None,
+        "mine_selected": None,
         "auth_tab": "login",
     }
     for k, v in defaults.items():
@@ -102,7 +99,7 @@ def render_auth_page() -> None:
                         try:
                             user = register(uname2, pwd2)
                             st.success(f"注册成功！你的用户 ID 是：`{user.user_id}`")
-                            st.info("请把 ID 告诉你的伴侣，登录后在「账户」页互相绑定。")
+                            st.info("请把 ID 告诉你的伴侣，登录后在「设置」里互相绑定。")
                         except AuthError as e:
                             st.error(str(e))
 
@@ -150,26 +147,20 @@ def main() -> None:
     if is_frozen(user.user_id):
         st.warning("❄️ 关系处于冻结期，当前为只读状态。")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    tab_us, tab_mine, tab_settings = st.tabs(
         [
-            "🗂️ 记录舱",
-            "🖼️ 灵感墙",
-            "📚 已归档",
-            "💌 情侣空间",
-            "⚙️ 账户",
+            "🏠 我们",
+            "📝 我的",
+            "⚙️ 设置",
         ]
     )
 
-    with tab1:
-        render_upload_tab()
-    with tab2:
-        render_pending_tab(db)
-    with tab3:
-        render_archived_tab(db)
-    with tab4:
-        render_shared_tab(db)
-    with tab5:
-        render_account_tab(db)
+    with tab_us:
+        render_us_tab(db)
+    with tab_mine:
+        render_mine_tab(db)
+    with tab_settings:
+        render_settings_tab(db)
 
 
 if __name__ == "__main__":

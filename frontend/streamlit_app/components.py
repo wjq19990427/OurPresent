@@ -142,6 +142,17 @@ def _visibility_badge(session: SessionRecord) -> str:
     return "✅ 已共享"
 
 
+def _status_badge(session: SessionRecord) -> str:
+    if session.status == "pending":
+        return "[草稿]"
+    if session.visibility == "private":
+        return "[仅自己]"
+    if session.visibility == "pending_unlock":
+        days = _days_until_unlock(session)
+        return f"[倒计时·还有 {days} 天]"
+    return "[已分享]"
+
+
 def _looks_like_date(value: str) -> bool:
     return bool(re.match(r"^\d{4}-\d{2}-\d{2}$", value or ""))
 
@@ -237,8 +248,15 @@ def render_comments(session: SessionRecord) -> None:
             st.rerun()
 
 
-def render_card(col, session: SessionRecord, state_key: str) -> None:
+def render_card(
+    col,
+    session: SessionRecord,
+    state_key: str,
+    author_name: str | None = None,
+) -> None:
     with col:
+        if author_name:
+            st.caption(f"作者：{author_name}")
         thumb, label = _session_thumb(session)
         if thumb:
             st.image(pil_to_png_bytes(thumb), use_container_width=True)
@@ -248,7 +266,7 @@ def render_card(col, session: SessionRecord, state_key: str) -> None:
         n_files = len(session.files)
         n_comments = len(session.comments)
         st.caption(f"📎 {n_files}  💬 {n_comments}  ·  {session.upload_time[:10]}")
-        st.caption(_visibility_badge(session))
+        st.caption(_status_badge(session))
 
         missing = validate_session(session)
         if missing:
@@ -264,7 +282,12 @@ def render_card(col, session: SessionRecord, state_key: str) -> None:
             st.rerun()
 
 
-def render_detail(session: SessionRecord, mode: str, read_only: bool = False) -> None:
+def render_detail(
+    session: SessionRecord,
+    mode: str,
+    read_only: bool = False,
+    selected_state_key: str | None = None,
+) -> None:
     is_mine = session.user_id == _uid()
     is_text = is_text_session(session)
     skip_keys = {"description"} if is_text else set()
@@ -431,7 +454,7 @@ def render_detail(session: SessionRecord, mode: str, read_only: bool = False) ->
             if mode == "pending":
                 with col_archive:
                     if st.form_submit_button(
-                        "✅ 完成并归档", use_container_width=True, type="primary"
+                        "✅ 完成", use_container_width=True, type="primary"
                     ):
                         update_session_fields(session.session_id, new_values)
                         missing = validate_session(_with_field_values(session, new_values))
@@ -439,13 +462,13 @@ def render_detail(session: SessionRecord, mode: str, read_only: bool = False) ->
                             st.error(f"请先填写：{', '.join(missing)}")
                         else:
                             move_to_final(session.session_id)
-                            st.session_state["pending_selected"] = None
-                            st.success("已归档！")
+                            st.session_state[selected_state_key or "pending_selected"] = None
+                            st.success("已完成！")
                             saved = True
 
             with col_cancel:
                 if st.form_submit_button("取消"):
-                    st.session_state[f"{mode}_selected"] = None
+                    st.session_state[selected_state_key or f"{mode}_selected"] = None
                     st.rerun()
 
             if saved:
