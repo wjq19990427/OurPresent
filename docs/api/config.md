@@ -8,7 +8,6 @@
 BASE_DIR    = Path(... )          # 项目根目录
 DATA_DIR    = BASE_DIR / "data"
 DB_PATH     = DATA_DIR / "database.db"
-LEGACY_DB_PATH = DATA_DIR / "db.json"
 ASSETS_DIR  = BASE_DIR / "Assets"
 PENDING_DIR = ASSETS_DIR / "Pending"
 FINAL_DIR   = ASSETS_DIR / "Final"
