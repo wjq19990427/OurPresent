@@ -286,7 +286,8 @@ def render_detail(
     session: SessionRecord,
     mode: str,
     read_only: bool = False,
-    selected_state_key: str | None = None,
+    *,
+    selected_state_key: str,
 ) -> None:
     is_mine = session.user_id == _uid()
     is_text = is_text_session(session)
@@ -462,13 +463,13 @@ def render_detail(
                             st.error(f"请先填写：{', '.join(missing)}")
                         else:
                             move_to_final(session.session_id)
-                            st.session_state[selected_state_key or "pending_selected"] = None
+                            st.session_state[selected_state_key] = None
                             st.success("已完成！")
                             saved = True
 
             with col_cancel:
                 if st.form_submit_button("取消"):
-                    st.session_state[selected_state_key or f"{mode}_selected"] = None
+                    st.session_state[selected_state_key] = None
                     st.rerun()
 
             if saved:

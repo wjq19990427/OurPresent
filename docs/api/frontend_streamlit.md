@@ -145,7 +145,8 @@ def render_detail(
     session: SessionRecord,
     mode: str,
     read_only: bool = False,
-    selected_state_key: str | None = None,
+    *,
+    selected_state_key: str,
 ) -> None
 ```
 
@@ -157,7 +158,7 @@ def render_detail(
 |------|------|
 | `mode` | `"pending"` 或 `"final"` |
 | `read_only` | 冻结期或查看共享记录时为 `True` |
-| `selected_state_key` | 取消或归档后需要清空的选中状态 key；为空时兼容旧默认 key |
+| `selected_state_key` | 取消或归档后需要清空的选中状态 key（关键字参数，必填） |
 
 行为说明：
 
