@@ -6,6 +6,7 @@
 
 ## [Unreleased]
 
+- task-11：UI 收尾落地（报告渲染迁至 components / 9 行状态矩阵 / 历史入口 / 频率文案 / frozen 只读）；情感周报功能阶段性完整
 - task-10：cron 自动触发落地（scheduling 纯函数 + tick() 扩展 + 失败重试 + 冻结期跳过）
 - task-9：DeepSeek 接入 + 生成 pipeline 落地（llm_client / semantic / guard / generate）；临时手动按钮；四模块真实渲染；隐私字段白名单测试覆盖
 - task-8：metrics + 服务开关 UI 落地（`compute_footprint` / `compute_suspense` / `service_active_for_couple` / 「设置」服务 section / 「我们」占位区 4 分支）；DeepSeek API key 配置就绪
