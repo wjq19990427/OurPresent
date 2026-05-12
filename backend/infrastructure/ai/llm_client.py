@@ -5,18 +5,33 @@ from __future__ import annotations
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
-DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 REQUEST_TIMEOUT_SECONDS = 30
 
 
 class LLMClientError(RuntimeError):
     """Raised when the DeepSeek client cannot return valid structured output."""
+
+
+def _validate_deepseek_base_url(base_url: str) -> str:
+    if urllib.parse.urlparse(base_url).scheme != "https":
+        raise LLMClientError("Illegal base URL: DEEPSEEK_BASE_URL must use https scheme")
+    return base_url
+
+
+def _configured_base_url() -> str:
+    return _validate_deepseek_base_url(
+        os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+    )
+
+
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+DEEPSEEK_BASE_URL = _configured_base_url()
 
 
 @dataclass(slots=True)

@@ -30,7 +30,7 @@ def get_report_history(couple_id: str) -> list[dict]
 class LLMClientError(RuntimeError)
 ```
 
-- DeepSeek 请求失败、缺少 `DEEPSEEK_API_KEY`、响应不是合法结构化 JSON 时抛出
+- DeepSeek 请求失败、缺少 `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL` scheme 非 https、响应不是合法结构化 JSON 时抛出
 - 上层周报生成用例捕获该异常并写入 `status="failed"` report
 
 ```python
@@ -68,4 +68,5 @@ def compose_weather_narrative(tags: list[EmotionTag]) -> str
 - 三个函数均调用 DeepSeek OpenAI-compatible chat completions API
 - API key 优先从环境变量 `DEEPSEEK_API_KEY` 读取；若不存在，读取项目根 `.env` 中同名变量
 - 默认模型名为 `deepseek-v4-flash`，可用 `DEEPSEEK_MODEL` 覆盖；`model_version` 会写入 report
+- `DEEPSEEK_BASE_URL` 可覆盖默认 endpoint，但必须是 https scheme，否则启动时抛 `LLMClientError`
 - 请求使用 JSON response format；返回后仍做结构化解析与长度截断兜底
