@@ -6,6 +6,17 @@
 
 ## [Unreleased]
 
+### UI 一致性收尾
+
+- **task-12a**：全量替换 Streamlit 已废弃的 `use_container_width` 参数（→ `width='stretch' / 'content'`），消除启动告警
+- **task-12b**：登录页迁移至单列移动端风格，视觉语言与认证后「我的 / 我们 / 设置」三个 tab 对齐
+
+### Phase 2 周报 A 级技术债清理（对应 `docs/phase2_audit.md` A2/A3/A4）
+
+- **task-13（A2）**：`compute_footprint` 输入契约收紧，缺失或无法解析 `shared_at` 直接抛 `ValueError`，把隐私边界从跨模块约定升级为运行期断言
+- **task-14（A3）**：`extract_semantic(sessions, couple)` 接收 Couple 上下文；resonance 候选严格按 `Couple.user_a` / `Couple.user_b` 对位，不再依赖 user_id 字典序，消除「我们」tab 周报左右两侧作者错位
+- **task-15（A4）**：`DEEPSEEK_BASE_URL` 启动期强制校验 https scheme，否则抛 `LLMClientError`；错误信息不回显环境变量内容，避免污染日志
+
 ## [v3.0.0] - 2026-05-11
 
 ### Phase 2 · AI 情感周报上线（核心）

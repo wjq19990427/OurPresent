@@ -34,7 +34,7 @@
 
 ---
 
-### A2. `compute_footprint` 对缺失 `shared_at` 的 session 默认放行
+### A2. `compute_footprint` 对缺失 `shared_at` 的 session 默认放行 · [✅ 已修复 · Unreleased / task-13]
 
 **位置**：`backend/application/reports/metrics.py:51-59`
 
@@ -57,7 +57,7 @@ or (window_start <= shared_at <= window_end)
 
 ---
 
-### A3. `resonance.user_a_excerpt` / `user_b_excerpt` 与 couple 模型的 `user_a` / `user_b` 不对应
+### A3. `resonance.user_a_excerpt` / `user_b_excerpt` 与 couple 模型的 `user_a` / `user_b` 不对应 · [✅ 已修复 · Unreleased / task-14]
 
 **位置**：`backend/application/reports/semantic.py:_resonance_candidates`
 
@@ -84,7 +84,7 @@ first_text = " ".join(...)  # 赋给 user_a_text
 
 ---
 
-### A4. `DEEPSEEK_BASE_URL` 环境变量未做 scheme 校验
+### A4. `DEEPSEEK_BASE_URL` 环境变量未做 scheme 校验 · [✅ 已修复 · Unreleased / task-15]
 
 **位置**：`backend/infrastructure/ai/llm_client.py:14`
 
