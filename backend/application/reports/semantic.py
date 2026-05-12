@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import datetime
 
 from backend.domain.models import Couple, SessionRecord
 from backend.infrastructure.ai import llm_client
@@ -10,11 +11,18 @@ from backend.infrastructure.ai.llm_client import EmotionTag, ResonanceCandidate,
 from backend.infrastructure.database.db import parse_dt
 
 
-def _session_day(session: SessionRecord) -> str:
+def _valid_day(value: str) -> str | None:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def _session_day(session: SessionRecord) -> str | None:
     parsed = parse_dt(session.shared_at or session.archive_time or session.upload_time)
     if parsed:
         return parsed.strftime("%Y-%m-%d")
-    return (session.content_time or "")[:10]
+    return _valid_day(session.content_time or "")
 
 
 def _corpus_item(session: SessionRecord) -> str:
@@ -37,7 +45,10 @@ def _resonance_candidates(
 ) -> list[ResonanceCandidate]:
     by_day: dict[str, dict[str, list[SessionRecord]]] = defaultdict(lambda: defaultdict(list))
     for session in sessions:
-        by_day[_session_day(session)][session.user_id].append(session)
+        day = _session_day(session)
+        if not day:
+            continue
+        by_day[day][session.user_id].append(session)
 
     candidates: list[ResonanceCandidate] = []
     for day, by_user in by_day.items():

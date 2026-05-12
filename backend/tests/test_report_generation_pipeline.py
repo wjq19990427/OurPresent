@@ -356,3 +356,95 @@ def test_semantic_passes_only_allowed_fields_to_llm(monkeypatch: pytest.MonkeyPa
     assert "/tmp/leaky_file.jpg" not in serialized
     assert "描述文本" in serialized
     assert "感受文本" in serialized
+
+
+def test_semantic_ignores_invalid_content_time_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+    couple = Couple(
+        couple_id="cp_1",
+        user_a="usr_a",
+        user_b="usr_b",
+        created_at="2026-05-08 00:00:00",
+        couple_status="active",
+        uncouple_initiated_by=None,
+        uncouple_initiated_at=None,
+        both_agreed_uncouple=False,
+        freeze_ends_at=None,
+    )
+    sessions = [
+        _session(
+            session_id="invalid_a",
+            user_id="usr_a",
+            shared_at=None,
+            archive_time="",
+            upload_time="",
+            content_time="上周二",
+            description="无效日期 A",
+        ),
+        _session(
+            session_id="invalid_b",
+            user_id="usr_b",
+            shared_at=None,
+            archive_time="",
+            upload_time="",
+            content_time="上周二",
+            description="无效日期 B",
+        ),
+        _session(
+            session_id="valid_a",
+            user_id="usr_a",
+            shared_at=None,
+            archive_time="",
+            upload_time="",
+            content_time="2026-05-09",
+            description="有效日期 A",
+        ),
+        _session(
+            session_id="valid_b",
+            user_id="usr_b",
+            shared_at=None,
+            archive_time="",
+            upload_time="",
+            content_time="2026-05-09",
+            description="有效日期 B",
+        ),
+    ]
+
+    def fake_extract_resonance(items: list[object]) -> list[ResonanceItem]:
+        seen["resonance_candidates"] = items
+        return [
+            ResonanceItem(
+                day=item.day,
+                topic=item.topic,
+                user_a_excerpt=item.user_a_text,
+                user_b_excerpt=item.user_b_text,
+            )
+            for item in items
+        ]
+
+    monkeypatch.setattr(
+        semantic_module.llm_client,
+        "extract_emotions",
+        lambda _corpus: [EmotionTag(label="安定", weight=0.6, phase="middle")],
+    )
+    monkeypatch.setattr(
+        semantic_module.llm_client,
+        "compose_weather_narrative",
+        lambda _tags: "云层变薄",
+    )
+    monkeypatch.setattr(semantic_module.llm_client, "extract_resonance", fake_extract_resonance)
+
+    _weather, resonance = semantic_module.extract_semantic(sessions, couple)
+
+    candidates = seen["resonance_candidates"]
+    assert [candidate.day for candidate in candidates] == ["2026-05-09"]
+    assert resonance == [
+        {
+            "day": "2026-05-09",
+            "topic": "同日共享",
+            "user_a_excerpt": "有效日期 A 轻",
+            "user_b_excerpt": "有效日期 B 轻",
+        }
+    ]

@@ -215,6 +215,7 @@ def extract_semantic(sessions: list[SessionRecord], couple: Couple) -> tuple[dic
 - 返回：
   - `weather`: `{ "tags": list[dict], "narrative": str }`
   - `resonance`: `[{ "day", "topic", "user_a_excerpt", "user_b_excerpt" }]`，其中 `user_a_excerpt` / `user_b_excerpt` 分别对应 `Couple.user_a` / `Couple.user_b`
+- resonance 按日期配对只使用可解析时间或合法 `YYYY-MM-DD` 的 `content_time` fallback；无有效日期的 session 不参与配对
 - `weather.narrative` 截断到 80 字符；resonance excerpt 截断到 8 字符
 - `llm_client.LLMClientError` 原样向上抛，由 generate 层兜底
 
