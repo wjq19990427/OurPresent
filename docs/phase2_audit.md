@@ -153,7 +153,7 @@ DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
 ---
 
-### B3. `_load_dotenv_api_key` 用 `parents[3]` 定位项目根，路径耦合脆弱
+### B3. `_load_dotenv_api_key` 用 `parents[3]` 定位项目根，路径耦合脆弱 · [✅ 已修复 · Unreleased / task-16]
 
 **位置**：`backend/infrastructure/ai/llm_client.py:46`
 
@@ -170,7 +170,7 @@ DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
 ---
 
-### B4. `get_report_history` 与 UI `render_report_history` 对 `failed` 的处理不一致
+### B4. `get_report_history` 与 UI `render_report_history` 对 `failed` 的处理不一致 · [✅ 已修复 · Unreleased / task-17]
 
 **位置**：
 - `backend/infrastructure/ai/agent_skills.py:get_report_history` 返回**包含** `failed`
@@ -190,7 +190,7 @@ DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
 ---
 
-### B5. `_corpus_item` 把 `user_id` 传给 LLM
+### B5. `_corpus_item` 把 `user_id` 传给 LLM · [✅ 已修复 · Unreleased / task-18]
 
 **位置**：`backend/application/reports/semantic.py:_corpus_item`
 
@@ -212,7 +212,7 @@ DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
 ---
 
-### B6. `_session_day` fallback 到 `content_time[:10]` 可能产生非日期字符串
+### B6. `_session_day` fallback 到 `content_time[:10]` 可能产生非日期字符串 · [✅ 已修复 · Unreleased / task-19]
 
 **位置**：`backend/application/reports/semantic.py:_session_day` 与 `metrics.py:_session_day`
 

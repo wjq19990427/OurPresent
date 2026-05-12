@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+### Phase 2 周报 B 级技术债清理（对应 `docs/phase2_audit.md` B3/B4/B5/B6）
+
+- **task-16（B3）**：`_load_dotenv_api_key` 改 walk-up 找 `pyproject.toml`，解除 `parents[3]` 硬编码；找不到项目根时静默跳过
+- **task-17（B4）**：`get_report_history(couple_id, include_failed=False)` 显式参数化，默认与 UI 渲染语义对齐过滤 `failed`，避免失败报告污染未来智能体上下文
+- **task-18（B5）**：guard 新增 `blocked_user_ids` 形参；扫描范围扩展至 `weather.narrative` / `weather.tags.*` / `resonance.day` / `topic` / 双方 excerpt，命中真实 user_id 直接判 failed
+- **task-19（B6）**：`_session_day` 主路径与 fallback 共用 `YYYY-MM-DD` strptime 校验，无效日期 session 不再进入 resonance 配对
+
 ### UI 一致性收尾
 
 - **task-12a**：全量替换 Streamlit 已废弃的 `use_container_width` 参数（→ `width='stretch' / 'content'`），消除启动告警
