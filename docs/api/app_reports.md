@@ -204,16 +204,17 @@ def should_generate_for_couple(couple: Couple, db: dict, now: datetime) -> bool
 ### `backend/application/reports/semantic.py` — 语义抽取
 
 ```python
-def extract_semantic(sessions: list[SessionRecord]) -> tuple[dict, list[dict]]
+def extract_semantic(sessions: list[SessionRecord], couple: Couple) -> tuple[dict, list[dict]]
 ```
 
 - 输入为窗口内 shared sessions
+- `couple` 用于将 resonance 候选严格对齐到 `Couple.user_a` / `Couple.user_b`
 - 传给 LLM 的字段白名单严格限定为 `description` / `feeling` / `content_time` / `user_id`
 - 不传 `session_id`、`files`、文件路径、`couple_id`
 - 调用 `llm_client.extract_emotions()`、`llm_client.compose_weather_narrative()`、`llm_client.extract_resonance()`
 - 返回：
   - `weather`: `{ "tags": list[dict], "narrative": str }`
-  - `resonance`: `[{ "day", "topic", "user_a_excerpt", "user_b_excerpt" }]`
+  - `resonance`: `[{ "day", "topic", "user_a_excerpt", "user_b_excerpt" }]`，其中 `user_a_excerpt` / `user_b_excerpt` 分别对应 `Couple.user_a` / `Couple.user_b`
 - `weather.narrative` 截断到 80 字符；resonance excerpt 截断到 8 字符
 - `llm_client.LLMClientError` 原样向上抛，由 generate 层兜底
 
@@ -253,7 +254,7 @@ def generate_weekly_report(
   - 调 `get_shared_sessions_for_rag(couple_id, window)` 获取窗口内 shared sessions
   - 计算 `footprint` 与 `suspense`
   - shared sessions 少于 3 条时跳过 LLM，写入 `status="sparse"` report
-  - 数据充足时调用 `extract_semantic()` 并拼装四模块 payload
+  - 数据充足时调用 `extract_semantic(sessions, couple)` 并拼装四模块 payload
   - LLM 失败时写入 `status="failed"` report，不向 UI/cron 抛出
   - guard 不通过时写入 `status="failed"` report，不保存 weather/resonance 正文
   - guard 通过时写入 `status="ready"` report

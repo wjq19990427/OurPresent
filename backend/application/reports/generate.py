@@ -107,7 +107,7 @@ def generate_weekly_report(
         )
 
     try:
-        weather, resonance = extract_semantic(sessions)
+        weather, resonance = extract_semantic(sessions, couple)
     except LLMClientError:
         logger.exception("LLMClientError while generating weekly report for %s", couple_id)
         return _persist(

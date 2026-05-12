@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from backend.domain.models import SessionRecord
+from backend.domain.models import Couple, SessionRecord
 from backend.infrastructure.ai import llm_client
 from backend.infrastructure.ai.llm_client import EmotionTag, ResonanceCandidate, ResonanceItem
 from backend.infrastructure.database.db import parse_dt
@@ -31,26 +31,29 @@ def _candidate_text(session: SessionRecord) -> str:
     return " ".join(part for part in (session.description, session.feeling) if part)
 
 
-def _resonance_candidates(sessions: list[SessionRecord]) -> list[ResonanceCandidate]:
+def _resonance_candidates(
+    sessions: list[SessionRecord],
+    couple: Couple,
+) -> list[ResonanceCandidate]:
     by_day: dict[str, dict[str, list[SessionRecord]]] = defaultdict(lambda: defaultdict(list))
     for session in sessions:
         by_day[_session_day(session)][session.user_id].append(session)
 
     candidates: list[ResonanceCandidate] = []
     for day, by_user in by_day.items():
-        if len(by_user) < 2:
+        user_a_sessions = by_user.get(couple.user_a, [])
+        user_b_sessions = by_user.get(couple.user_b, [])
+        if not user_a_sessions or not user_b_sessions:
             continue
-        user_ids = sorted(by_user)
-        first_user, second_user = user_ids[0], user_ids[1]
-        first_text = " ".join(_candidate_text(session) for session in by_user[first_user])
-        second_text = " ".join(_candidate_text(session) for session in by_user[second_user])
-        if first_text and second_text:
+        user_a_text = " ".join(_candidate_text(session) for session in user_a_sessions)
+        user_b_text = " ".join(_candidate_text(session) for session in user_b_sessions)
+        if user_a_text and user_b_text:
             candidates.append(
                 ResonanceCandidate(
                     day=day,
                     topic="同日共享",
-                    user_a_text=first_text[:500],
-                    user_b_text=second_text[:500],
+                    user_a_text=user_a_text[:500],
+                    user_b_text=user_b_text[:500],
                 )
             )
     return candidates
@@ -72,13 +75,13 @@ def _resonance_to_dict(items: list[ResonanceItem]) -> list[dict]:
     ]
 
 
-def extract_semantic(sessions: list[SessionRecord]) -> tuple[dict, list[dict]]:
+def extract_semantic(sessions: list[SessionRecord], couple: Couple) -> tuple[dict, list[dict]]:
     """Extract weather and resonance modules from shared sessions."""
 
     corpus = [_corpus_item(session) for session in sessions]
     tags = llm_client.extract_emotions(corpus)
     narrative = llm_client.compose_weather_narrative(tags)
-    resonance = llm_client.extract_resonance(_resonance_candidates(sessions))
+    resonance = llm_client.extract_resonance(_resonance_candidates(sessions, couple))
 
     return (
         {"tags": _tags_to_dict(tags), "narrative": narrative[:80]},

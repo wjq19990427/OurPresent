@@ -8,8 +8,9 @@ from backend.application.couples import accept_bind, send_bind_request
 from backend.application.reports import check_no_verbatim_quote, generate_weekly_report
 from backend.application.reports import generate as generate_module
 from backend.application.reports import semantic as semantic_module
-from backend.domain.models import SessionRecord
+from backend.domain.models import Couple, SessionRecord
 from backend.infrastructure.ai.llm_client import EmotionTag, LLMClientError, ResonanceItem
+from backend.infrastructure.database import users_repo
 from backend.infrastructure.database.reports_repo import list_reports_for_couple
 from backend.infrastructure.database.sessions_repo import add_session
 from backend.infrastructure.database.users_repo import create_user, update_user
@@ -23,6 +24,11 @@ def _active_enabled_couple() -> tuple[str, str, str]:
     update_user(alice.user_id, {"weekly_report_enabled": True})
     update_user(bob.user_id, {"weekly_report_enabled": True})
     return alice.user_id, bob.user_id, couple.couple_id
+
+
+class _FakeUUID:
+    def __init__(self, value: str) -> None:
+        self.hex = value
 
 
 def _session(**fields: object) -> SessionRecord:
@@ -71,7 +77,7 @@ def test_generate_weekly_report_sparse_skips_llm(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(
         generate_module,
         "extract_semantic",
-        lambda _sessions: pytest.fail("sparse reports must not call LLM"),
+        lambda _sessions, _couple: pytest.fail("sparse reports must not call LLM"),
     )
 
     report = generate_weekly_report(couple_id, datetime(2026, 5, 11, 0, 0, 0))
@@ -97,7 +103,7 @@ def test_generate_weekly_report_ready_with_mock_llm(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(
         generate_module,
         "extract_semantic",
-        lambda _sessions: (
+        lambda _sessions, _couple: (
             {"tags": [{"label": "轻松", "weight": 0.7, "phase": "late"}], "narrative": "微风转晴"},
             [
                 {
@@ -118,6 +124,72 @@ def test_generate_weekly_report_ready_with_mock_llm(monkeypatch: pytest.MonkeyPa
     assert [stored.report_id for stored in list_reports_for_couple(couple_id)] == [report.report_id]
 
 
+def test_generate_weekly_report_resonance_uses_couple_user_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = iter(["ffffffff", "11111111", "aaaaaaaa"])
+    monkeypatch.setattr(users_repo.uuid, "uuid4", lambda: _FakeUUID(next(ids)))
+    user_a_id, user_b_id, couple_id = _active_enabled_couple()
+    assert user_a_id > user_b_id
+
+    add_session(
+        _session(
+            session_id="sess_a1",
+            user_id=user_a_id,
+            couple_id=couple_id,
+            description="A侧晨跑",
+        )
+    )
+    add_session(
+        _session(
+            session_id="sess_b1",
+            user_id=user_b_id,
+            couple_id=couple_id,
+            description="B侧晚饭",
+        )
+    )
+    add_session(
+        _session(
+            session_id="sess_a2",
+            user_id=user_a_id,
+            couple_id=couple_id,
+            description="A侧夜谈",
+        )
+    )
+
+    def fake_extract_resonance(items: list[object]) -> list[ResonanceItem]:
+        assert len(items) == 1
+        candidate = items[0]
+        assert candidate.user_a_text == "A侧晨跑 轻松 A侧夜谈 轻松"
+        assert candidate.user_b_text == "B侧晚饭 轻松"
+        return [
+            ResonanceItem(
+                day=candidate.day,
+                topic="同日共享",
+                user_a_excerpt="A侧",
+                user_b_excerpt="B侧",
+            )
+        ]
+
+    monkeypatch.setattr(
+        semantic_module.llm_client,
+        "extract_emotions",
+        lambda _corpus: [EmotionTag(label="轻松", weight=0.7, phase="middle")],
+    )
+    monkeypatch.setattr(
+        semantic_module.llm_client,
+        "compose_weather_narrative",
+        lambda _tags: "云层变亮",
+    )
+    monkeypatch.setattr(semantic_module.llm_client, "extract_resonance", fake_extract_resonance)
+
+    report = generate_weekly_report(couple_id, datetime(2026, 5, 11, 0, 0, 0))
+
+    assert report.status == "ready"
+    assert report.resonance[0]["user_a_excerpt"] == "A侧"
+    assert report.resonance[0]["user_b_excerpt"] == "B侧"
+
+
 def test_generate_weekly_report_llm_error_persists_failed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -125,7 +197,7 @@ def test_generate_weekly_report_llm_error_persists_failed(
     for index, user_id in enumerate([alice_id, bob_id, alice_id], start=1):
         add_session(_session(session_id=f"sess_{index}", user_id=user_id, couple_id=couple_id))
 
-    def raise_llm(_sessions: list[SessionRecord]) -> tuple[dict, list[dict]]:
+    def raise_llm(_sessions: list[SessionRecord], _couple: object) -> tuple[dict, list[dict]]:
         raise LLMClientError("bad key")
 
     monkeypatch.setattr(generate_module, "extract_semantic", raise_llm)
@@ -146,7 +218,10 @@ def test_generate_weekly_report_guard_failure_persists_failed(
     monkeypatch.setattr(
         generate_module,
         "extract_semantic",
-        lambda _sessions: ({"tags": [], "narrative": "今天一起做了一顿很香的晚饭"}, []),
+        lambda _sessions, _couple: (
+            {"tags": [], "narrative": "今天一起做了一顿很香的晚饭"},
+            [],
+        ),
     )
     monkeypatch.setattr(generate_module, "check_no_verbatim_quote", lambda *_args: False)
 
@@ -186,7 +261,19 @@ def test_semantic_passes_only_allowed_fields_to_llm(monkeypatch: pytest.MonkeyPa
     )
     monkeypatch.setattr(semantic_module.llm_client, "extract_resonance", fake_extract_resonance)
 
-    weather, resonance = semantic_module.extract_semantic([session])
+    couple = Couple(
+        couple_id="leaky_couple_id",
+        user_a=session.user_id,
+        user_b="usr_2",
+        created_at="2026-05-08 00:00:00",
+        couple_status="active",
+        uncouple_initiated_by=None,
+        uncouple_initiated_at=None,
+        both_agreed_uncouple=False,
+        freeze_ends_at=None,
+    )
+
+    weather, resonance = semantic_module.extract_semantic([session], couple)
 
     assert weather["narrative"] == "云层变薄"
     assert resonance == []
