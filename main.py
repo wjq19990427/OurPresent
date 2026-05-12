@@ -68,9 +68,7 @@ def render_auth_page() -> None:
     st.caption("情侣专属的情感记录空间")
     st.divider()
 
-    col_left, col_right = st.columns([1, 1], gap="large")
-
-    with col_left:
+    with st.container(border=True):
         tabs = st.tabs(["登录", "注册"])
 
         with tabs[0]:
@@ -103,10 +101,9 @@ def render_auth_page() -> None:
                         except AuthError as e:
                             st.error(str(e))
 
-    with col_right:
+    st.divider()
+    with st.expander("关于 OurPresent", expanded=False):
         st.markdown("""
-### 关于 OurPresent
-
 > 在保护个人绝对隐私的前提下，通过"延时共享"沉淀情感。
 
 **核心机制**
