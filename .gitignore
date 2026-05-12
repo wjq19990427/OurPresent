@@ -29,3 +29,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# Synth workflow generated artifacts
+tools/synth/scripts/*.json
+tools/synth/.synth_db/*

@@ -38,6 +38,9 @@ frontend/
 └── streamlit_app/
     ├── components.py
     └── pages/
+
+tools/
+└── synth/              # 开发期 AI 合成数据流水线，使用独立 DB/Assets，不进入生产依赖链
 ```
 
 ## 3. 分层依赖

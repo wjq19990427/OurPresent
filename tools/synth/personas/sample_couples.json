@@ -1,0 +1,66 @@
+{
+  "seed_id": "任务20_示例角色卡",
+  "start_date": "2026-01-05",
+  "couples": [
+    {
+      "id": "cp_primary_seed",
+      "role": "primary",
+      "a": {
+        "id": "A",
+        "username": "合成林澈",
+        "display_name": "林澈",
+        "tone": "敏感但愿意承担，遇到压力会先收紧自己",
+        "communication_style": "先写下来整理，再用短句确认边界",
+        "relationship_stage": "摩擦",
+        "emotional_anchors": [
+          "刚搬进共同租住的小房子",
+          "工作上线周期让作息变得不稳定",
+          "想证明自己可靠但害怕显得控制"
+        ]
+      },
+      "b": {
+        "id": "B",
+        "username": "合成夏予",
+        "display_name": "夏予",
+        "tone": "外向温和，失落时容易用玩笑带过",
+        "communication_style": "偏即时沟通，希望情绪被当场接住",
+        "relationship_stage": "摩擦",
+        "emotional_anchors": [
+          "期待共同生活里的仪式感",
+          "近期和朋友的比较让安全感下降",
+          "想要更多主动的解释和拥抱"
+        ]
+      }
+    },
+    {
+      "id": "销毁链路样例关系",
+      "role": "destroy_sample",
+      "a": {
+        "id": "A",
+        "username": "合成莫然",
+        "display_name": "莫然",
+        "tone": "理性克制，习惯把分别处理得体面",
+        "communication_style": "清楚说明决定和后续边界",
+        "relationship_stage": "冷淡",
+        "emotional_anchors": [
+          "长期异地后的疲惫",
+          "共同相册已经很少新增",
+          "希望销毁数据后各自轻装离开"
+        ]
+      },
+      "b": {
+        "id": "B",
+        "username": "合成秦青",
+        "display_name": "秦青",
+        "tone": "柔软但已经接受关系结束",
+        "communication_style": "先确认对方感受，再讨论实际安排",
+        "relationship_stage": "冷淡",
+        "emotional_anchors": [
+          "不想继续保存旧记录反复回看",
+          "希望解绑过程清楚而不互相指责",
+          "愿意尊重冻结期后的销毁决定"
+        ]
+      }
+    }
+  ]
+}
