@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 REQUEST_TIMEOUT_SECONDS = 30
+PROJECT_ROOT_MARKER = "pyproject.toml"
 
 
 class LLMClientError(RuntimeError):
@@ -58,7 +59,11 @@ class ResonanceItem:
 
 
 def _load_dotenv_api_key() -> str | None:
-    env_path = Path(__file__).resolve().parents[3] / ".env"
+    project_root = _find_project_root(Path(__file__).resolve())
+    if project_root is None:
+        return None
+
+    env_path = project_root / ".env"
     if not env_path.exists():
         return None
     for line in env_path.read_text(encoding="utf-8").splitlines():
@@ -68,6 +73,13 @@ def _load_dotenv_api_key() -> str | None:
         key, value = stripped.split("=", 1)
         if key.strip() == "DEEPSEEK_API_KEY":
             return value.strip().strip("\"'")
+    return None
+
+
+def _find_project_root(start: Path) -> Path | None:
+    for directory in start.parents:
+        if (directory / PROJECT_ROOT_MARKER).exists():
+            return directory
     return None
 
 
