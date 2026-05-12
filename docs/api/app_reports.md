@@ -90,6 +90,7 @@ def compute_footprint(
   - `comment_count`：评论总数
   - `by_author`：按 `user_id` 计数
 - `kind` 由 `source_type` 与附件扩展名推导；纯文本 source 或文本附件为 `text`，图片扩展名为 `photo`，视频扩展名为 `video`
+- 输入 session 必须包含可解析的 `shared_at`；缺失或无法解析时抛出 `ValueError`，表示调用方违反 footprint 输入契约
 - 不写库、不调用外部服务
 
 ```python

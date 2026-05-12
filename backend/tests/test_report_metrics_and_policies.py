@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
+
 from backend.application.couples import accept_bind, send_bind_request
 from backend.application.reports import (
     compute_footprint,
@@ -70,6 +72,16 @@ def test_compute_footprint_single_author_counts_comments_and_days() -> None:
     assert footprint["active_days"] == 2
     assert footprint["comment_count"] == 2
     assert footprint["by_author"] == {"usr_1": 2}
+
+
+def test_compute_footprint_rejects_session_without_shared_at() -> None:
+    sessions = [_session(shared_at=None)]
+
+    with pytest.raises(ValueError, match="shared_at"):
+        compute_footprint(
+            sessions,
+            (datetime(2026, 5, 1), datetime(2026, 5, 7, 23, 59, 59)),
+        )
 
 
 def test_compute_footprint_two_authors_and_multiple_kinds() -> None:

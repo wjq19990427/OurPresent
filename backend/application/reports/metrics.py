@@ -38,9 +38,23 @@ def _session_kind(session: SessionRecord) -> str:
     return "text"
 
 
+def _require_shared_at(session: SessionRecord) -> datetime:
+    if not session.shared_at:
+        raise ValueError(
+            "compute_footprint requires every session to include shared_at; "
+            f"missing for session_id={session.session_id}"
+        )
+    parsed = parse_dt(session.shared_at)
+    if parsed is None:
+        raise ValueError(
+            "compute_footprint requires every session.shared_at to be parseable; "
+            f"invalid for session_id={session.session_id}"
+        )
+    return parsed
+
+
 def _session_day(session: SessionRecord) -> str | None:
-    timestamp = session.shared_at or session.archive_time or session.upload_time
-    parsed = parse_dt(timestamp or "")
+    parsed = parse_dt(session.shared_at or "")
     return parsed.strftime("%Y-%m-%d") if parsed else None
 
 
@@ -48,15 +62,11 @@ def compute_footprint(sessions: list[SessionRecord], window: tuple[datetime, dat
     """Compute structured footprint metrics for shared sessions in a report window."""
 
     window_start, window_end = window
-    filtered = [
-        session
-        for session in sessions
-        if (not session.shared_at)
-        or (
-            (shared_at := parse_dt(session.shared_at)) is not None
-            and window_start <= shared_at <= window_end
-        )
-    ]
+    filtered = []
+    for session in sessions:
+        shared_at = _require_shared_at(session)
+        if window_start <= shared_at <= window_end:
+            filtered.append(session)
 
     by_kind = {"photo": 0, "video": 0, "text": 0}
     by_author: dict[str, int] = {}
