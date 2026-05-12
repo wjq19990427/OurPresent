@@ -228,12 +228,14 @@ VERBATIM_QUOTE_THRESHOLD = 12
 def check_no_verbatim_quote(
     report_payload: dict,
     source_sessions: list[SessionRecord],
+    blocked_user_ids: list[str] | None = None,
 ) -> bool
 ```
 
 - 拼接 source sessions 的 `description + feeling` 作为原始语料
-- 对 `weather.narrative` 与所有 `resonance.*.excerpt` 做最长公共子串检测
+- 对 `weather.narrative`、`weather.tags.*` 与所有 `resonance.*` 用户可见文本做最长公共子串检测
 - 任一连续重合片段长度 `>= VERBATIM_QUOTE_THRESHOLD` 返回 False
+- 若传入 `blocked_user_ids`，对上述 LLM 生成的用户可见文本做真实 `user_id` 黑名单扫描；任一命中返回 False
 - 返回 True 表示通过，可进入 `status="ready"` 持久化
 
 ---
@@ -256,7 +258,7 @@ def generate_weekly_report(
   - shared sessions 少于 3 条时跳过 LLM，写入 `status="sparse"` report
   - 数据充足时调用 `extract_semantic(sessions, couple)` 并拼装四模块 payload
   - LLM 失败时写入 `status="failed"` report，不向 UI/cron 抛出
-  - guard 不通过时写入 `status="failed"` report，不保存 weather/resonance 正文
+  - guard 不通过时写入 `status="failed"` report，不保存 weather/resonance 正文；包含原文长引用或 LLM 生成可见文本泄露本次 source sessions 中真实 `user_id`
   - guard 通过时写入 `status="ready"` report
 - `model_version` 写入 DeepSeek 客户端当前模型名
 - `source_session_ids` 对 sparse / ready / failed 均写入，便于审计与排障

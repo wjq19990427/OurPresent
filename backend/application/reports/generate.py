@@ -29,6 +29,10 @@ def _source_session_ids(sessions: list[SessionRecord]) -> list[str]:
     return [session.session_id for session in sessions]
 
 
+def _source_user_ids(sessions: list[SessionRecord]) -> list[str]:
+    return sorted({session.user_id for session in sessions if session.user_id})
+
+
 def _report_id(couple_id: str, window_end: datetime) -> str:
     return f"rpt_{window_end.strftime('%Y%m%d')}_{couple_id}"
 
@@ -130,7 +134,11 @@ def generate_weekly_report(
         "resonance": resonance,
         "suspense": suspense,
     }
-    status = "ready" if check_no_verbatim_quote(payload, sessions) else "failed"
+    status = (
+        "ready"
+        if check_no_verbatim_quote(payload, sessions, blocked_user_ids=_source_user_ids(sessions))
+        else "failed"
+    )
     if status == "failed":
         logger.warning("Weekly report failed verbatim quote guard for %s", couple_id)
 

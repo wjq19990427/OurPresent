@@ -71,6 +71,50 @@ def test_guard_allows_short_overlap_and_rejects_long_verbatim_quote() -> None:
     )
 
 
+def test_guard_rejects_generated_visible_text_with_blocked_user_id() -> None:
+    sessions = [_session(user_id="usr_a1b2c3d4")]
+
+    assert (
+        check_no_verbatim_quote(
+            {
+                "weather": {
+                    "tags": [{"label": "轻松", "weight": 0.7, "phase": "late"}],
+                    "narrative": "这周的节奏更柔和",
+                },
+                "resonance": [{"topic": "散步", "user_a_excerpt": "微风"}],
+            },
+            sessions,
+            blocked_user_ids=["usr_a1b2c3d4"],
+        )
+        is True
+    )
+    assert (
+        check_no_verbatim_quote(
+            {
+                "weather": {
+                    "tags": [{"label": "轻松", "weight": 0.7, "phase": "late"}],
+                    "narrative": "usr_a1b2c3d4 这周的节奏更柔和",
+                },
+                "resonance": [],
+            },
+            sessions,
+            blocked_user_ids=["usr_a1b2c3d4"],
+        )
+        is False
+    )
+    assert (
+        check_no_verbatim_quote(
+            {
+                "weather": {"narrative": "这周的节奏更柔和"},
+                "resonance": [{"topic": "usr_a1b2c3d4 的散步"}],
+            },
+            sessions,
+            blocked_user_ids=["usr_a1b2c3d4"],
+        )
+        is False
+    )
+
+
 def test_generate_weekly_report_sparse_skips_llm(monkeypatch: pytest.MonkeyPatch) -> None:
     alice_id, _, couple_id = _active_enabled_couple()
     add_session(_session(session_id="sess_1", user_id=alice_id, couple_id=couple_id))
@@ -122,6 +166,35 @@ def test_generate_weekly_report_ready_with_mock_llm(monkeypatch: pytest.MonkeyPa
     assert report.weather["narrative"] == "微风转晴"
     assert report.resonance[0]["user_a_excerpt"] == "微风"
     assert [stored.report_id for stored in list_reports_for_couple(couple_id)] == [report.report_id]
+
+
+def test_generate_weekly_report_user_id_leak_persists_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    alice_id, bob_id, couple_id = _active_enabled_couple()
+    for index, user_id in enumerate([alice_id, bob_id, alice_id], start=1):
+        add_session(_session(session_id=f"sess_{index}", user_id=user_id, couple_id=couple_id))
+    monkeypatch.setattr(
+        generate_module,
+        "extract_semantic",
+        lambda _sessions, _couple: (
+            {"tags": [], "narrative": f"这周 {alice_id} 的节奏更放松"},
+            [
+                {
+                    "day": "2026-05-08",
+                    "topic": "散步",
+                    "user_a_excerpt": "微风",
+                    "user_b_excerpt": "晚霞",
+                }
+            ],
+        ),
+    )
+
+    report = generate_weekly_report(couple_id, datetime(2026, 5, 11, 0, 0, 0))
+
+    assert report.status == "failed"
+    assert report.weather == {}
+    assert report.resonance == []
 
 
 def test_generate_weekly_report_resonance_uses_couple_user_order(
@@ -223,7 +296,7 @@ def test_generate_weekly_report_guard_failure_persists_failed(
             [],
         ),
     )
-    monkeypatch.setattr(generate_module, "check_no_verbatim_quote", lambda *_args: False)
+    monkeypatch.setattr(generate_module, "check_no_verbatim_quote", lambda *_args, **_kwargs: False)
 
     report = generate_weekly_report(couple_id, datetime(2026, 5, 11, 0, 0, 0))
 
