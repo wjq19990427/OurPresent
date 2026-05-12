@@ -6,9 +6,9 @@
 
 ## [Unreleased]
 
-### 合成数据 workflow 启动
+### 合成数据 workflow 落地
 
-- **task-20 任务卡入库**：`tools/synth/` 独立目录，MiniMax-M2.5 驱动「角色卡 → 时间线 → 延时表达行为」三层语义合成，强制 `SYNTH_DB_PATH` 隔离，必经 application 层落库，为后续 PG 迁移 / FastAPI 包装提供回归基线
+- **task-20**：`tools/synth/` 独立工具链上线 —— MiniMax-M2.5 驱动「角色卡 / 时间线 / 延时表达行为」三层合成，contextmanager 隔离 monkey-patch、`SYNTH_DB_PATH` + Assets 双重隔离、必经 application 层（含 `add_comment` 互动 / 销毁链路），剧本 JSON 支持无 LLM 回放，自带 3 项 pytest（分布 / 二次回放等价 / 生产路径拒绝）
 
 ### Phase 2 周报 B 级技术债清理（对应 `docs/phase2_audit.md` B3/B4/B5/B6）
 
