@@ -118,7 +118,7 @@ def _render_new_record_entry() -> None:
 
             col1, col2 = st.columns(2)
             with col1:
-                if st.form_submit_button("✅ 完成", use_container_width=True, type="primary"):
+                if st.form_submit_button("✅ 完成", width="stretch", type="primary"):
                     draft = _validation_record(_uid(), couple_id, source_type, field_vals)
                     missing = validate_session(draft)
                     if missing:
@@ -131,7 +131,7 @@ def _render_new_record_entry() -> None:
                         st.success("已完成！")
                         st.rerun()
             with col2:
-                if st.form_submit_button("📦 存为草稿", use_container_width=True):
+                if st.form_submit_button("📦 存为草稿", width="stretch"):
                     save_session_pending(_uid(), couple_id, file_data_list, source_type, field_vals)
                     st.session_state["upload_key"] += 1
                     draft = _validation_record(_uid(), couple_id, source_type, field_vals)

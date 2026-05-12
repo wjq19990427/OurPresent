@@ -77,7 +77,7 @@ def render_auth_page() -> None:
             with st.form("login_form"):
                 uname = st.text_input("用户名")
                 pwd = st.text_input("密码", type="password")
-                if st.form_submit_button("登录", use_container_width=True, type="primary"):
+                if st.form_submit_button("登录", width="stretch", type="primary"):
                     try:
                         user = login(uname, pwd)
                         st.session_state["user"] = user
@@ -92,7 +92,7 @@ def render_auth_page() -> None:
                 uname2 = st.text_input("用户名", key="reg_uname")
                 pwd2 = st.text_input("密码（至少 6 位）", type="password", key="reg_pwd")
                 pwd2c = st.text_input("确认密码", type="password", key="reg_pwd_c")
-                if st.form_submit_button("注册", use_container_width=True):
+                if st.form_submit_button("注册", width="stretch"):
                     if pwd2 != pwd2c:
                         st.error("两次密码输入不一致")
                     else:

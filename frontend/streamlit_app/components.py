@@ -363,7 +363,7 @@ def render_card(
             st.caption(f"作者：{author_name}")
         thumb, label = _session_thumb(session)
         if thumb:
-            st.image(pil_to_png_bytes(thumb), use_container_width=True)
+            st.image(pil_to_png_bytes(thumb), width="stretch")
         else:
             st.markdown(f"```\n{label[:120]}\n```")
 
@@ -380,7 +380,7 @@ def render_card(
 
         button_label = "查看/编辑" if session.user_id == _uid() else "查看"
         if st.button(
-            button_label, key=f"sel_{state_key}_{session.session_id}", use_container_width=True
+            button_label, key=f"sel_{state_key}_{session.session_id}", width="stretch"
         ):
             st.session_state[state_key] = session.session_id
             st.rerun()
@@ -403,7 +403,7 @@ def render_detail(
             ext = file_path.suffix.lower()
             st.markdown(f"**{file_record['original_name']}**")
             if ext in {".jpg", ".jpeg", ".png", ".gif", ".webp"} and file_path.exists():
-                st.image(str(file_path), use_container_width=True)
+                st.image(str(file_path), width="stretch")
             elif ext == ".mp4" and file_path.exists():
                 st.video(str(file_path))
             elif ext in TEXT_EXTS and file_path.exists():
@@ -551,7 +551,7 @@ def render_detail(
             saved = False
 
             with col_save:
-                if st.form_submit_button("💾 保存更改", use_container_width=True):
+                if st.form_submit_button("💾 保存更改", width="stretch"):
                     update_session_fields(session.session_id, new_values)
                     st.success("已保存")
                     saved = True
@@ -559,7 +559,7 @@ def render_detail(
             if mode == "pending":
                 with col_archive:
                     if st.form_submit_button(
-                        "✅ 完成", use_container_width=True, type="primary"
+                        "✅ 完成", width="stretch", type="primary"
                     ):
                         update_session_fields(session.session_id, new_values)
                         missing = validate_session(_with_field_values(session, new_values))

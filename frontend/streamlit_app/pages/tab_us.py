@@ -28,7 +28,7 @@ def _username(user_id: str) -> str:
 
 
 def _settings_hint_button(key: str) -> None:
-    if st.button("去「设置」开启", key=key, use_container_width=True):
+    if st.button("去「设置」开启", key=key, width="stretch"):
         st.info("入口在上方「⚙️ 设置」tab 的「情感周报服务」里。")
 
 
@@ -54,7 +54,7 @@ def _render_weekly_report_panel(couple) -> None:
 
         if active:
             # TASK-9 临时按钮，cron 稳定后另开任务删除
-            if st.button("🧪 立即生成周报（测试）", use_container_width=True):
+            if st.button("🧪 立即生成周报（测试）", width="stretch"):
                 generate_weekly_report(couple.couple_id)
                 st.rerun()
             st.caption("（临时入口，cron 稳定后将由架构师删除）")

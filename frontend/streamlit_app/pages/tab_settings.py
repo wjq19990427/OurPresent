@@ -116,7 +116,7 @@ def render_settings_tab(db: dict) -> None:
         st.markdown(f"**用户 ID**：`{user.user_id}`")
         st.caption("把上方 ID 分享给伴侣，让对方来搜索你。")
     with col_b:
-        if st.button("退出登录", use_container_width=True):
+        if st.button("退出登录", width="stretch"):
             token = st.query_params.get("token")
             if token:
                 revoke_auth_token(token)
@@ -140,14 +140,14 @@ def render_settings_tab(db: dict) -> None:
                 if st.button(
                     "✅ 接受",
                     key=f"accept_{req.couple_id}",
-                    use_container_width=True,
+                    width="stretch",
                     type="primary",
                 ):
                     accept_bind(req.couple_id)
                     st.success("绑定成功！")
                     st.rerun()
             with col2:
-                if st.button("❌ 拒绝", key=f"reject_{req.couple_id}", use_container_width=True):
+                if st.button("❌ 拒绝", key=f"reject_{req.couple_id}", width="stretch"):
                     reject_bind(req.couple_id)
                     st.info("已拒绝。")
                     st.rerun()
@@ -162,7 +162,7 @@ def render_settings_tab(db: dict) -> None:
                 placeholder="usr_xxxxxxxx",
                 help="让伴侣在「设置」里找到自己的 ID 并告诉你",
             )
-            if st.form_submit_button("发送绑定请求", use_container_width=True, type="primary"):
+            if st.form_submit_button("发送绑定请求", width="stretch", type="primary"):
                 try:
                     send_bind_request(user.user_id, target_id.strip())
                     st.success("绑定请求已发送，等待对方确认。")
@@ -199,14 +199,14 @@ def render_settings_tab(db: dict) -> None:
             col_single, col_mutual = st.columns(2)
             with col_single:
                 if st.button(
-                    "😔 进入冻结期", use_container_width=True, type="secondary"
+                    "😔 进入冻结期", width="stretch", type="secondary"
                 ):
                     start_uncouple(user.user_id)
                     st.warning("已进入冻结期，90 天后数据将被销毁。")
                     st.rerun()
             with col_mutual:
                 if st.button(
-                    "💔 双方同意立即销毁", use_container_width=True, type="secondary"
+                    "💔 双方同意立即销毁", width="stretch", type="secondary"
                 ):
                     confirm_uncouple(user.user_id)
                     st.error("已销毁全部数据。")
@@ -221,7 +221,7 @@ def render_settings_tab(db: dict) -> None:
         st.markdown("---")
         st.markdown("#### 📦 导出我的数据")
         st.caption("冻结期内可导出属于自己的文件和文字记录，不包含对方数据。")
-        if st.button("生成导出包", use_container_width=True):
+        if st.button("生成导出包", width="stretch"):
             export_files = collect_export_files(user.user_id)
             if not export_files:
                 st.info("没有可导出的文件。")
