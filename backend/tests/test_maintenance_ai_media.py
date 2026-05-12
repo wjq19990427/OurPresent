@@ -187,10 +187,31 @@ def test_ai_helpers_filter_shared_sessions_and_return_report_history() -> None:
             source_session_ids=["session_3"],
         )
     )
+    create_report(
+        Report(
+            report_id="rpt_failed_cp_1",
+            couple_id="cp_1",
+            window_start="2026-05-04 00:00:00",
+            window_end="2026-05-10 23:59:59",
+            generated_at="2026-05-12 03:00:00",
+            model_version="",
+            footprint={"total": 1},
+            weather={},
+            resonance=[],
+            suspense=[],
+            status="failed",
+            source_session_ids=["session_3"],
+        )
+    )
 
     history = get_report_history("cp_1")
+    full_history = get_report_history("cp_1", include_failed=True)
 
     assert [item["report_id"] for item in history] == ["rpt_20260510_cp_1"]
+    assert [item["report_id"] for item in full_history] == [
+        "rpt_failed_cp_1",
+        "rpt_20260510_cp_1",
+    ]
 
 
 def test_ai_helpers_filter_shared_sessions_by_window() -> None:

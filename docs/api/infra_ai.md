@@ -14,13 +14,14 @@ def get_shared_sessions_for_rag(
 - 返回值仍是 repository 边界的 dict，不在本层转换为 domain model
 
 ```python
-def get_report_history(couple_id: str) -> list[dict]
+def get_report_history(couple_id: str, include_failed: bool = False) -> list[dict]
 ```
 
 - 情感周报历史薄包装
 - 委托 `backend.application.reports.query.list_reports(couple_id)`
 - 返回 `Report.to_dict()` 列表，排序由 query/repository 保证为 `generated_at` 倒序
-- 包含 `failed`，便于未来排障入口使用
+- 默认过滤 `status == "failed"`，与 UI 默认可见历史语义一致，避免失败报告进入智能体上下文
+- `include_failed=True` 时返回包含 failed 的完整历史，供排障 / 调试入口显式使用
 
 ---
 

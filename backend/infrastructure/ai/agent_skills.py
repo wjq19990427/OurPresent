@@ -26,7 +26,10 @@ def get_shared_sessions_for_rag(
     return sessions
 
 
-def get_report_history(couple_id: str) -> list[dict]:
+def get_report_history(couple_id: str, include_failed: bool = False) -> list[dict]:
     from backend.application.reports.query import list_reports
 
-    return [report.to_dict() for report in list_reports(couple_id)]
+    reports = list_reports(couple_id)
+    if not include_failed:
+        reports = [report for report in reports if report.status != "failed"]
+    return [report.to_dict() for report in reports]
