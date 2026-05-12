@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### 合成数据 workflow 启动
+
+- **task-20 任务卡入库**：`tools/synth/` 独立目录，MiniMax-M2.5 驱动「角色卡 → 时间线 → 延时表达行为」三层语义合成，强制 `SYNTH_DB_PATH` 隔离，必经 application 层落库，为后续 PG 迁移 / FastAPI 包装提供回归基线
+
 ### Phase 2 周报 B 级技术债清理（对应 `docs/phase2_audit.md` B3/B4/B5/B6）
 
 - **task-16（B3）**：`_load_dotenv_api_key` 改 walk-up 找 `pyproject.toml`，解除 `parents[3]` 硬编码；找不到项目根时静默跳过
