@@ -26,16 +26,16 @@ OurPresent 的核心体验围绕亲密关系、私密记录、延时共享和解
 
 一次生成通常会产生两类结果：
 
-- Markdown 剧本：保存在 `tools/synth/scripts/`，例如 `任务20_合成数据剧本.md`
+- Markdown 剧本：保存在 `tools/synth/scripts/`，例如 `任务20_合成数据剧本.md` 和 `任务20_销毁链路剧本.md`
 - 隔离数据库：推荐保存在 `tools/synth/.synth_db/data/database.db`
 
-剧本是这套数据的来源文件。它不是导出日志，也不是临时缓存；只要保留这份 Markdown，就可以在不再次调用大模型的情况下，重新生成同一套虚构数据。
+剧本是这套数据的来源文件。它不是导出日志，也不是临时缓存；只要保留这些 Markdown，就可以在不再次调用大模型的情况下，重新生成同一套虚构数据。为了方便阅读，每份剧本只讲一对情侣：主剧本讲延时共享故事，销毁链路剧本讲最终分开并销毁数据的故事。
 
 数据库是应用可读取的 SQLite 文件。默认不会替换正式本地库，你需要显式设置 `SYNTH_DB_PATH` 才能运行。
 
 ## 3. 几个概念先说清楚
 
-剧本：一份 Markdown 文件，描述角色卡、关系事件、要写入的记录、记录之后发生的共享/评论/销毁行为。
+剧本：一份 Markdown 文件，描述一对情侣的角色卡、关系事件、要写入的记录、记录之后发生的共享/评论/销毁行为。
 
 生成：从角色卡和时间线创建剧本。离线生成使用内置确定性内容；联网生成会调用 Minimax 生成时间线。
 
@@ -88,11 +88,12 @@ uv run python tools/synth/run_synth.py --offline
 
 ```text
 script=tools/synth/scripts/任务20_合成数据剧本.md
+script=tools/synth/scripts/任务20_销毁链路剧本.md
 db=/.../tools/synth/.synth_db/data/database.db
 summary={'users': 4, 'couples': 2, 'sessions': 6, ...}
 ```
 
-这表示已经生成 Markdown 剧本，并把剧本写入隔离数据库。离线样例仍然会覆盖主要业务路径，因此足够用于 smoke test 和演示准备。
+这表示已经生成两份 Markdown 剧本，并把它们写入同一个隔离数据库。第一份只讲林澈 / 夏予的延时共享故事；第二份只讲莫然 / 秦青的关系解除与数据销毁。离线样例仍然会覆盖主要业务路径，因此足够用于 smoke test 和演示准备。
 
 ## 6. 调用 Minimax 生成
 
@@ -123,12 +124,17 @@ uv run python tools/synth/replay.py tools/synth/scripts/任务20_合成数据剧
 
 默认会清空并重建隔离数据库和隔离附件目录。这样同一份剧本每次生成出的逻辑数据都一致，方便排查问题和做回归对比。
 
-只有当你明确想把多份剧本写进同一个合成库时，才加 `--append`：
+如果想手动把两份样例都写进同一个隔离库，先跑主剧本，再追加销毁链路剧本：
 
 ```bash
 SYNTH_DB_PATH=tools/synth/.synth_db/data/database.db \
-uv run python tools/synth/replay.py tools/synth/scripts/任务20_合成数据剧本.md --append
+uv run python tools/synth/replay.py tools/synth/scripts/任务20_合成数据剧本.md
+
+SYNTH_DB_PATH=tools/synth/.synth_db/data/database.db \
+uv run python tools/synth/replay.py tools/synth/scripts/任务20_销毁链路剧本.md --append
 ```
+
+除这种“先跑一份、再追加另一份”的情况外，默认不要加 `--append`，这样每次重放都会从干净的隔离库开始。
 
 如果剧本缺少 frontmatter、角色卡字段、事件引用，或者某个 `actions` 段格式不对，工具会在创建数据库前报错。也就是说，格式错误不会留下半写入的 SQLite 文件。
 
@@ -254,7 +260,7 @@ tools/synth/personas/sample_couples.json
 rm -rf tools/synth/.synth_db
 ```
 
-生成过程中的临时 Markdown 默认被 `.gitignore` 忽略。仓库会保留一份固定样例 `任务20_合成数据剧本.md` 和一份模板 `template.md`，方便回归和手写起步。
+生成过程中的临时 Markdown 默认被 `.gitignore` 忽略。仓库会保留固定样例 `任务20_合成数据剧本.md`、`任务20_销毁链路剧本.md` 和一份模板 `template.md`，方便回归和手写起步。
 
 ## 14. 安全边界
 

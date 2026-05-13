@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from tools.synth.actions import build_script
-from tools.synth.driver import SynthConfigError, run_script, validate_synth_storage
+from tools.synth.actions import build_destroy_script, build_script
+from tools.synth.driver import SynthConfigError, run_script, run_scripts, validate_synth_storage
 from tools.synth.persona import load_persona_seed
 from tools.synth.script_io import dumps_md, load_md, loads_md
 from tools.synth.timeline import deterministic_timeline
@@ -20,7 +20,11 @@ def _script() -> dict:
     return build_script(seed, timeline, weeks=6)
 
 
-def test_replay_writes_expected_distribution(
+def _destroy_script() -> dict:
+    return build_destroy_script(load_persona_seed())
+
+
+def test_primary_script_writes_expected_distribution(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -36,23 +40,59 @@ def test_replay_writes_expected_distribution(
         comments = conn.execute(
             "SELECT COUNT(*) FROM sessions WHERE comments_json != '[]'"
         ).fetchone()[0]
+        couples = conn.execute("SELECT COUNT(*) FROM couples").fetchone()[0]
         dissolved = conn.execute(
             "SELECT COUNT(*) FROM couples WHERE couple_status = 'dissolved'"
-        ).fetchone()[0]
-        destroyed_leftovers = conn.execute(
-            """
-            SELECT COUNT(*)
-            FROM sessions
-            WHERE couple_id IN (
-                SELECT couple_id FROM couples WHERE couple_status = 'dissolved'
-            )
-            """
         ).fetchone()[0]
 
     assert visibility == {"pending_unlock": 4, "private": 1, "shared": 1}
     assert comments == 1
+    assert couples == 1
+    assert dissolved == 0
+
+
+def test_destroy_script_writes_dissolved_couple_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path = tmp_path / "synth" / "data" / "database.db"
+    monkeypatch.setenv("SYNTH_DB_PATH", str(db_path))
+
+    run_script(_destroy_script())
+
+    with sqlite3.connect(db_path) as conn:
+        couples = conn.execute("SELECT COUNT(*) FROM couples").fetchone()[0]
+        sessions = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+        dissolved = conn.execute(
+            "SELECT COUNT(*) FROM couples WHERE couple_status = 'dissolved'"
+        ).fetchone()[0]
+
+    assert couples == 1
+    assert sessions == 0
     assert dissolved == 1
-    assert destroyed_leftovers == 0
+
+
+def test_combined_scripts_write_expected_distribution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path = tmp_path / "synth" / "data" / "database.db"
+    monkeypatch.setenv("SYNTH_DB_PATH", str(db_path))
+
+    run_scripts([_script(), _destroy_script()])
+
+    with sqlite3.connect(db_path) as conn:
+        visibility = dict(
+            conn.execute("SELECT visibility, COUNT(*) FROM sessions GROUP BY visibility").fetchall()
+        )
+        couples = conn.execute("SELECT COUNT(*) FROM couples").fetchone()[0]
+        dissolved = conn.execute(
+            "SELECT COUNT(*) FROM couples WHERE couple_status = 'dissolved'"
+        ).fetchone()[0]
+
+    assert visibility == {"pending_unlock": 4, "private": 1, "shared": 1}
+    assert couples == 2
+    assert dissolved == 1
 
 
 def test_replay_is_stable_after_reset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -72,6 +112,23 @@ def test_markdown_round_trip_preserves_script() -> None:
     script = _script()
 
     assert loads_md(dumps_md(script)) == script
+
+
+def test_each_script_contains_one_couple_story() -> None:
+    primary = _script()
+    destroy = _destroy_script()
+
+    assert [couple["ref"] for couple in primary["couples"]] == ["primary"]
+    assert [couple["role"] for couple in primary["personas"]["couples"]] == ["primary"]
+    assert {session["couple_ref"] for session in primary["sessions"]} == {"primary"}
+    assert primary["destroy_actions"] == []
+
+    assert [couple["ref"] for couple in destroy["couples"]] == ["destroy_sample"]
+    assert [couple["role"] for couple in destroy["personas"]["couples"]] == [
+        "destroy_sample"
+    ]
+    assert {session["couple_ref"] for session in destroy["sessions"]} == {"destroy_sample"}
+    assert {action["couple_ref"] for action in destroy["destroy_actions"]} == {"destroy_sample"}
 
 
 def test_sessions_are_created_on_their_event_day() -> None:
@@ -105,8 +162,8 @@ def test_one_month_unlock_can_be_rescheduled_earlier() -> None:
 
 
 def test_destroy_sample_uses_its_own_timeline_event() -> None:
-    script = _script()
-    session = next(item for item in script["sessions"] if item["ref"] == "sess_07_destroy_seed")
+    script = _destroy_script()
+    session = next(item for item in script["sessions"] if item["ref"] == "sess_destroy_01_seed")
     event = next(item for item in script["timeline"] if item["id"] == session["event_id"])
 
     assert session["couple_ref"] == "destroy_sample"

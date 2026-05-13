@@ -2,7 +2,7 @@
 
 `tools/synth/` 是开发期专用的合成数据流水线，用虚构情侣角色生成 OurPresent 测试数据，并写入隔离 SQLite。它不使用真实用户数据，也不改动 `backend/` 生产逻辑。
 
-这里的“剧本”是一份 Markdown 文件：它同时给人阅读、给程序读取。程序会按剧本里的角色、时间线、记录和后续行为，在隔离数据库里创建用户、绑定情侣、保存记录、设置延时共享、写评论、执行关系解除后的数据销毁。
+这里的“剧本”是一份 Markdown 文件：它同时给人阅读、给程序读取。每份剧本只讲一对情侣的故事。程序会按剧本里的角色、时间线、记录和后续行为，在隔离数据库里创建用户、绑定情侣、保存记录、设置延时共享、写评论，或执行关系解除后的数据销毁。
 
 ## 常用术语
 
@@ -39,7 +39,7 @@ SYNTH_DB_PATH=tools/synth/.synth_db/data/database.db \
 uv run python tools/synth/run_synth.py --offline
 ```
 
-这会生成 `tools/synth/scripts/任务20_合成数据剧本.md`，然后立刻把这份剧本写入隔离数据库。终端会输出剧本路径、数据库路径和各类记录数量。
+这会生成两份剧本：`tools/synth/scripts/任务20_合成数据剧本.md` 只讲林澈 / 夏予的延时共享故事，`tools/synth/scripts/任务20_销毁链路剧本.md` 只讲莫然 / 秦青的关系解除与数据销毁。随后工具会按这两份剧本写入同一个隔离数据库。终端会输出两个剧本路径、数据库路径和各类记录数量。
 
 离线路径仍会走同一套重放 driver，并生成任务要求的延时共享行为分布。
 
@@ -52,7 +52,7 @@ uv run python tools/synth/run_synth.py \
   --weeks 6
 ```
 
-这会先校验 Minimax 环境变量，再从角色卡生成时间线，把 Markdown 剧本写到 `tools/synth/scripts/`，最后通过 application 层公开 API 写入隔离数据库。
+这会先校验 Minimax 环境变量，再从角色卡生成主情侣时间线，把两份 Markdown 剧本写到 `tools/synth/scripts/`，最后通过 application 层公开 API 写入隔离数据库。
 
 ## 不调模型，按已有剧本写库
 
@@ -61,14 +61,19 @@ SYNTH_DB_PATH=tools/synth/.synth_db/data/database.db \
 uv run python tools/synth/replay.py tools/synth/scripts/任务20_合成数据剧本.md
 ```
 
-默认行为会先清空配置好的隔离数据库和隔离附件目录，再按剧本重新写入。这样同一份剧本跑多次会得到等价的逻辑数据，方便对比和回归。
+默认行为会先清空配置好的隔离数据库和隔离附件目录，再按这一份剧本重新写入。这样同一份剧本跑多次会得到等价的逻辑数据，方便对比和回归。
 
-只有在明确想把多份剧本追加到同一个合成库时，才使用 `--append`：
+如果想手动把两份样例都写进同一个隔离库，先跑主剧本，再用 `--append` 跑销毁链路剧本：
 
 ```bash
 SYNTH_DB_PATH=tools/synth/.synth_db/data/database.db \
-uv run python tools/synth/replay.py tools/synth/scripts/任务20_合成数据剧本.md --append
+uv run python tools/synth/replay.py tools/synth/scripts/任务20_合成数据剧本.md
+
+SYNTH_DB_PATH=tools/synth/.synth_db/data/database.db \
+uv run python tools/synth/replay.py tools/synth/scripts/任务20_销毁链路剧本.md --append
 ```
+
+除这种“先跑一份、再追加另一份”的情况外，默认不要加 `--append`，这样每次重放都会从干净的隔离库开始。
 
 ## 如何阅读 Markdown 剧本
 
@@ -126,13 +131,16 @@ tools/synth/scripts/template.md
 
 ## 剧本覆盖内容
 
-入库样例 `任务20_合成数据剧本.md` 覆盖：
+入库样例分成两份。`任务20_合成数据剧本.md` 只包含一对情侣，覆盖：
 
 - 永久私密记录
 - 1 小时、1 天、1 周、1 个月后解锁的延时共享样本
 - 推后和提前调整解锁时间
 - 立即解锁
 - 伴侣读取后评论互动
+
+`任务20_销毁链路剧本.md` 只包含另一对最终分开的情侣，覆盖：
+
 - 关系解除冻结期后的数据销毁链路
 
 如果未来生成器无法覆盖某个分支，必须把该分支写入 `coverage.skipped` 并说明原因。

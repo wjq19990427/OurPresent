@@ -9,9 +9,9 @@ from pathlib import Path
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.synth.actions import build_script
+from tools.synth.actions import build_destroy_script, build_script
 from tools.synth.cli import write_script
-from tools.synth.driver import run_script, summarize_sqlite
+from tools.synth.driver import run_scripts, summarize_sqlite
 from tools.synth.minimax_client import MinimaxClient
 from tools.synth.persona import DEFAULT_PERSONA_PATH, load_persona_seed
 from tools.synth.timeline import generate_timeline
@@ -38,9 +38,12 @@ def main() -> None:
     client = None if args.offline else MinimaxClient()
     timeline = generate_timeline(persona_seed, weeks=args.weeks, client=client)
     script = build_script(persona_seed, timeline, args.weeks)
+    destroy_script = build_destroy_script(persona_seed)
     script_path = write_script(script, args.output_dir)
-    db_path = run_script(script, reset_db=not args.append)
+    destroy_script_path = write_script(destroy_script, args.output_dir)
+    db_path = run_scripts([script, destroy_script], reset_db=not args.append)
     print(f"script={script_path}")
+    print(f"script={destroy_script_path}")
     print(f"db={db_path}")
     print(f"summary={summarize_sqlite(db_path)}")
 

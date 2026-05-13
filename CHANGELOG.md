@@ -14,6 +14,7 @@
 
 - **task-20b 任务卡入库**：合成剧本载体由 JSON 改为 Markdown 单源，frontmatter 装结构、正文按时间序铺事件与延时行为；新增手写模板供使用者直接填充并 replay，driver/replay 仅换 IO 层，业务零改；与 task-21 核心文件不冲突，并行 Wave 1
 - **task-20b 实现**：`tools/synth/scripts/任务20_合成数据剧本.md` 成为入库样例，`script_io` 在写库前校验 frontmatter、事件引用、记录字段和行为时间精度；新增 `template.md`，文档补齐“重放”“frontmatter”“公开状态”“actions”等定义，方便非工程使用者直接阅读和手改剧本。
+- **task-20b 样例拆分**：主剧本只保留一对情侣的延时共享故事，关系解除与销毁链路拆到 `任务20_销毁链路剧本.md`；`run_synth.py` 会生成两份 Markdown 并在同一个隔离运行上下文内写库，避免跨剧本 UUID 重置。
 
 ### 合成数据 workflow 落地
 

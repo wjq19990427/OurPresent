@@ -10,13 +10,85 @@ from tools.synth.persona import primary_couple
 TIME_FMT = "%Y-%m-%d %H:%M:%S"
 
 
+PRIMARY_SESSION_SPECS = [
+    ("sess_01_private", "primary", "A", 0, "private", []),
+    (
+        "sess_02_pending_1h",
+        "primary",
+        "B",
+        1,
+        "pending_unlock",
+        [{"type": "request_unlock", "at_offset_hours": 1, "unlock_after": {"hours": 2}}],
+    ),
+    (
+        "sess_03_pending_1d",
+        "primary",
+        "A",
+        2,
+        "pending_unlock",
+        [{"type": "request_unlock", "at_offset_hours": 1, "unlock_after": {"days": 1}}],
+    ),
+    (
+        "sess_04_reschedule_later",
+        "primary",
+        "B",
+        3,
+        "pending_unlock",
+        [
+            {"type": "request_unlock", "at_offset_hours": 1, "unlock_after": {"days": 7}},
+            {
+                "type": "reschedule_unlock",
+                "at_offset_hours": 2,
+                "unlock_after": {"days": 14},
+            },
+        ],
+    ),
+    (
+        "sess_05_reschedule_earlier_1m",
+        "primary",
+        "A",
+        4,
+        "pending_unlock",
+        [
+            {"type": "request_unlock", "at_offset_hours": 1, "unlock_after": {"days": 45}},
+            {
+                "type": "reschedule_unlock",
+                "at_offset_hours": 16 * 24,
+                "unlock_after": {"days": 17},
+            },
+        ],
+    ),
+    (
+        "sess_06_share_now",
+        "primary",
+        "B",
+        5,
+        "shared",
+        [
+            {"type": "request_unlock", "at_offset_hours": 1, "unlock_after": {"days": 7}},
+            {"type": "unlock_now", "at_offset_hours": 2},
+            {
+                "type": "add_comment",
+                "at_offset_hours": 3,
+                "author": "A",
+                "text": "我读到了，也终于明白那天你不是冷淡，是怕打扰我。",
+            },
+        ],
+    ),
+]
+
+DESTROY_SESSION_SPECS = [
+    ("sess_destroy_01_seed", "destroy_sample", "A", 0, "destroyed", []),
+]
+
+
 def build_script(
     persona_seed: dict[str, Any],
     timeline: list[dict[str, Any]],
     weeks: int,
 ) -> dict[str, Any]:
     base = datetime.fromisoformat(f"{timeline[0]['date']} 09:00:00")
-    script_timeline = [*timeline, _destroy_event(persona_seed, base)]
+    couple = primary_couple(persona_seed)
     return {
         "schema_version": 1,
         "metadata": {
@@ -25,23 +97,13 @@ def build_script(
             "generated_at": base.strftime(TIME_FMT),
             "notes": "人可读剧本；重放时不调用大模型。",
         },
-        "personas": persona_seed,
-        "timeline": script_timeline,
+        "personas": _persona_seed_for_couple(persona_seed, couple),
+        "timeline": timeline,
         "couples": [
-            _couple_entry(primary_couple(persona_seed), "primary"),
-            _couple_entry(_destroy_couple(persona_seed), "destroy_sample"),
+            _couple_entry(couple, "primary"),
         ],
-        "sessions": _session_actions(script_timeline, base),
-        "destroy_actions": [
-            {
-                "id": "destroy_01",
-                "couple_ref": "destroy_sample",
-                "initiator": "A",
-                "start_uncouple_at": (base + timedelta(days=45, hours=9)).strftime(TIME_FMT),
-                "destroy_at": (base + timedelta(days=45, hours=10)).strftime(TIME_FMT),
-                "reason": "冻结期销毁分支样本：先冻结，再调用 destroy_couple_data 完整清理。",
-            }
-        ],
+        "sessions": _session_actions(timeline, PRIMARY_SESSION_SPECS),
+        "destroy_actions": [],
         "coverage": {
             "covered": [
                 "永久私密",
@@ -53,9 +115,37 @@ def build_script(
                 "调整解锁时间_提前",
                 "立即解锁",
                 "伴侣读取后评论互动",
-                "冻结期销毁完整链路",
             ],
-            "skipped": [],
+            "skipped": ["冻结期销毁完整链路（见 任务20_销毁链路剧本.md）"],
+        },
+    }
+
+
+def build_destroy_script(persona_seed: dict[str, Any]) -> dict[str, Any]:
+    base = datetime.fromisoformat(f"{persona_seed.get('start_date', '2026-01-05')} 09:00:00")
+    couple = _destroy_couple(persona_seed)
+    timeline = [_destroy_event(persona_seed, base)]
+    return {
+        "schema_version": 1,
+        "metadata": {
+            "name": "任务20_销毁链路剧本",
+            "weeks": 1,
+            "generated_at": base.strftime(TIME_FMT),
+            "notes": "单独验证关系解除与数据销毁；重放时不调用大模型。",
+        },
+        "personas": _persona_seed_for_couple(persona_seed, couple),
+        "timeline": timeline,
+        "couples": [
+            _couple_entry(couple, "destroy_sample"),
+        ],
+        "sessions": _session_actions(timeline, DESTROY_SESSION_SPECS),
+        "destroy_actions": [_destroy_action(base)],
+        "coverage": {
+            "covered": ["冻结期销毁完整链路"],
+            "skipped": [
+                "永久私密",
+                "延时共享与评论互动（见 任务20_合成数据剧本.md）",
+            ],
         },
     }
 
@@ -69,6 +159,14 @@ def _destroy_couple(seed: dict[str, Any]) -> dict[str, Any]:
 
 def _couple_entry(couple: dict[str, Any], ref: str) -> dict[str, Any]:
     return {"ref": ref, "a": couple["a"], "b": couple["b"], "password": "synth-pass-20"}
+
+
+def _persona_seed_for_couple(seed: dict[str, Any], couple: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "seed_id": seed.get("seed_id"),
+        "start_date": seed.get("start_date"),
+        "couples": [couple],
+    }
 
 
 def _destroy_event(seed: dict[str, Any], base: datetime) -> dict[str, Any]:
@@ -89,74 +187,21 @@ def _destroy_event(seed: dict[str, Any], base: datetime) -> dict[str, Any]:
     }
 
 
-def _session_actions(timeline: list[dict[str, Any]], base: datetime) -> list[dict[str, Any]]:
-    specs = [
-        ("sess_01_private", "primary", "A", 0, "private", []),
-        (
-            "sess_02_pending_1h",
-            "primary",
-            "B",
-            1,
-            "pending_unlock",
-            [{"type": "request_unlock", "at_offset_hours": 1, "unlock_after": {"hours": 2}}],
-        ),
-        (
-            "sess_03_pending_1d",
-            "primary",
-            "A",
-            2,
-            "pending_unlock",
-            [{"type": "request_unlock", "at_offset_hours": 1, "unlock_after": {"days": 1}}],
-        ),
-        (
-            "sess_04_reschedule_later",
-            "primary",
-            "B",
-            3,
-            "pending_unlock",
-            [
-                {"type": "request_unlock", "at_offset_hours": 1, "unlock_after": {"days": 7}},
-                {
-                    "type": "reschedule_unlock",
-                    "at_offset_hours": 2,
-                    "unlock_after": {"days": 14},
-                },
-            ],
-        ),
-        (
-            "sess_05_reschedule_earlier_1m",
-            "primary",
-            "A",
-            4,
-            "pending_unlock",
-            [
-                {"type": "request_unlock", "at_offset_hours": 1, "unlock_after": {"days": 45}},
-                {
-                    "type": "reschedule_unlock",
-                    "at_offset_hours": 16 * 24,
-                    "unlock_after": {"days": 17},
-                },
-            ],
-        ),
-        (
-            "sess_06_share_now",
-            "primary",
-            "B",
-            5,
-            "shared",
-            [
-                {"type": "request_unlock", "at_offset_hours": 1, "unlock_after": {"days": 7}},
-                {"type": "unlock_now", "at_offset_hours": 2},
-                {
-                    "type": "add_comment",
-                    "at_offset_hours": 3,
-                    "author": "A",
-                    "text": "我读到了，也终于明白那天你不是冷淡，是怕打扰我。",
-                },
-            ],
-        ),
-        ("sess_07_destroy_seed", "destroy_sample", "A", -1, "destroyed", []),
-    ]
+def _destroy_action(base: datetime) -> dict[str, Any]:
+    return {
+        "id": "destroy_01",
+        "couple_ref": "destroy_sample",
+        "initiator": "A",
+        "start_uncouple_at": (base + timedelta(days=45, hours=9)).strftime(TIME_FMT),
+        "destroy_at": (base + timedelta(days=45, hours=10)).strftime(TIME_FMT),
+        "reason": "冻结期销毁分支样本：先冻结，再调用 destroy_couple_data 完整清理。",
+    }
+
+
+def _session_actions(
+    timeline: list[dict[str, Any]],
+    specs: list[tuple[str, str, str, int, str, list[dict[str, Any]]]],
+) -> list[dict[str, Any]]:
     sessions: list[dict[str, Any]] = []
     for index, (ref, couple_ref, author, event_index, branch, actions) in enumerate(specs):
         event = timeline[event_index]
