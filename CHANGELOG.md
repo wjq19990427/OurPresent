@@ -13,10 +13,11 @@
 ### 合成剧本可读性优化启动
 
 - **task-20b 任务卡入库**：合成剧本载体由 JSON 改为 Markdown 单源，frontmatter 装结构、正文按时间序铺事件与延时行为；新增手写模板供使用者直接填充并 replay，driver/replay 仅换 IO 层，业务零改；与 task-21 核心文件不冲突，并行 Wave 1
+- **task-20b 实现**：`tools/synth/scripts/任务20_合成数据剧本.md` 成为入库样例，`script_io` 在写库前校验 frontmatter、事件引用、记录字段和行为时间精度；新增 `template.md`，文档补齐“重放”“frontmatter”“公开状态”“actions”等定义，方便非工程使用者直接阅读和手改剧本。
 
 ### 合成数据 workflow 落地
 
-- **task-20**：`tools/synth/` 独立工具链上线 —— MiniMax-M2.5 驱动「角色卡 / 时间线 / 延时表达行为」三层合成，contextmanager 隔离 monkey-patch、`SYNTH_DB_PATH` + Assets 双重隔离、必经 application 层（含 `add_comment` 互动 / 销毁链路），剧本 JSON 支持无 LLM 回放，自带 3 项 pytest（分布 / 二次回放等价 / 生产路径拒绝）
+- **task-20**：`tools/synth/` 独立工具链上线 —— MiniMax-M2.5 驱动「角色卡 / 时间线 / 延时表达行为」三层合成，contextmanager 隔离 monkey-patch、`SYNTH_DB_PATH` + Assets 双重隔离、必经 application 层（含 `add_comment` 互动 / 销毁链路），剧本支持无 LLM 重复写库，自带 3 项 pytest（分布 / 二次写库等价 / 生产路径拒绝）
 
 ### Phase 2 周报 B 级技术债清理（对应 `docs/phase2_audit.md` B3/B4/B5/B6）
 

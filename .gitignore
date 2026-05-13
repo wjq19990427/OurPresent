@@ -31,5 +31,7 @@ Thumbs.db
 .env.*.local
 
 # Synth workflow generated artifacts
-tools/synth/scripts/*.json
+tools/synth/scripts/*.md
+!tools/synth/scripts/任务20_合成数据剧本.md
+!tools/synth/scripts/template.md
 tools/synth/.synth_db/*

@@ -40,7 +40,7 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["backend/tests"]
+testpaths = ["backend/tests", "tools/synth/tests"]
 pythonpath = ["."]
 addopts = "--cov=backend --cov-report=term-missing"
 

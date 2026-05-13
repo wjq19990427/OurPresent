@@ -14,7 +14,7 @@ from tools.synth.driver import run_script, summarize_sqlite
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Replay an OurPresent synth script JSON.")
+    parser = argparse.ArgumentParser(description="Replay an OurPresent synth script Markdown file.")
     parser.add_argument("script", type=Path)
     parser.add_argument(
         "--append",
