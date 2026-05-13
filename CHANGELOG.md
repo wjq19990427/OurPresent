@@ -10,6 +10,10 @@
 
 - **task-21 任务卡入库**：PostgreSQL + Docker Compose 介质迁移设计落定，整库 dict 语义保留，application/domain/frontend 零感知，task-20 合成剧本作为跨 DB 一致性验收基线；同步搭车清理 task-20 四条遗留
 
+### 合成剧本可读性优化启动
+
+- **task-20b 任务卡入库**：合成剧本载体由 JSON 改为 Markdown 单源，frontmatter 装结构、正文按时间序铺事件与延时行为；新增手写模板供使用者直接填充并 replay，driver/replay 仅换 IO 层，业务零改；与 task-21 核心文件不冲突，并行 Wave 1
+
 ### 合成数据 workflow 落地
 
 - **task-20**：`tools/synth/` 独立工具链上线 —— MiniMax-M2.5 驱动「角色卡 / 时间线 / 延时表达行为」三层合成，contextmanager 隔离 monkey-patch、`SYNTH_DB_PATH` + Assets 双重隔离、必经 application 层（含 `add_comment` 互动 / 销毁链路），剧本 JSON 支持无 LLM 回放，自带 3 项 pytest（分布 / 二次回放等价 / 生产路径拒绝）
