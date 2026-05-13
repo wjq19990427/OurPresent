@@ -74,6 +74,15 @@ def test_markdown_round_trip_preserves_script() -> None:
     assert loads_md(dumps_md(script)) == script
 
 
+def test_sessions_are_created_on_their_event_day() -> None:
+    script = _script()
+    event_dates = {event["id"]: event["date"] for event in script["timeline"]}
+
+    for session in script["sessions"]:
+        assert session["created_at"].startswith(event_dates[session["event_id"]])
+        assert session["fields"]["content_time"] == event_dates[session["event_id"]]
+
+
 @pytest.mark.parametrize(
     ("broken_text", "message"),
     [
@@ -83,7 +92,7 @@ def test_markdown_round_trip_preserves_script() -> None:
             "script missing required field: personas",
         ),
         (
-            dumps_md(_script()).replace("    at: 2026-01-06 10:01:00\n", "", 1),
+            dumps_md(_script()).replace("    at: 2026-01-10 10:01:00\n", "", 1),
             "sessions[1].actions[0].at",
         ),
     ],

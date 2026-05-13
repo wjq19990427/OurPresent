@@ -141,7 +141,8 @@ def _session_actions(timeline: list[dict[str, Any]], base: datetime) -> list[dic
     sessions: list[dict[str, Any]] = []
     for index, (ref, couple_ref, author, event_index, branch, actions) in enumerate(specs):
         event = timeline[event_index]
-        created_at = base + timedelta(days=index, minutes=index)
+        event_day = datetime.fromisoformat(f"{event['date']} 09:00:00")
+        created_at = event_day + timedelta(minutes=index)
         sessions.append(
             {
                 "ref": ref,
