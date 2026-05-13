@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import re
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+TIME_FMT = "%Y-%m-%d %H:%M:%S"
 TIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 FENCE_RE = re.compile(r"^```yaml +(timeline|session|destroy_actions)\n(.*?)^```", re.M | re.S)
@@ -480,6 +482,10 @@ def _validate_session_action(value: Any, path: str) -> None:
     _require_time(action.get("at"), f"{path}.at")
     if action_type in {"request_unlock", "reschedule_unlock"}:
         _require_time(action.get("unlock_at"), f"{path}.unlock_at")
+        action_at = datetime.strptime(action["at"], TIME_FMT)
+        unlock_at = datetime.strptime(action["unlock_at"], TIME_FMT)
+        if unlock_at <= action_at:
+            raise ScriptFormatError(f"{path}.unlock_at must be later than {path}.at")
     if action_type == "add_comment":
         if action.get("author") not in {"A", "B"}:
             raise ScriptFormatError(f"{path}.author must be A or B")

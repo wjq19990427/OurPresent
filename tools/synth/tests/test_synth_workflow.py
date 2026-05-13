@@ -83,6 +83,40 @@ def test_sessions_are_created_on_their_event_day() -> None:
         assert session["fields"]["content_time"] == event_dates[session["event_id"]]
 
 
+def test_one_month_unlock_can_be_rescheduled_earlier() -> None:
+    script = _script()
+    session = next(
+        item for item in script["sessions"] if item["ref"] == "sess_05_reschedule_earlier_1m"
+    )
+
+    assert session["created_at"] == "2026-01-25 09:04:00"
+    assert session["actions"] == [
+        {
+            "type": "request_unlock",
+            "at": "2026-01-25 10:04:00",
+            "unlock_at": "2026-03-11 09:04:00",
+        },
+        {
+            "type": "reschedule_unlock",
+            "at": "2026-02-10 09:04:00",
+            "unlock_at": "2026-02-11 09:04:00",
+        },
+    ]
+
+
+def test_destroy_sample_uses_its_own_timeline_event() -> None:
+    script = _script()
+    session = next(item for item in script["sessions"] if item["ref"] == "sess_07_destroy_seed")
+    event = next(item for item in script["timeline"] if item["id"] == session["event_id"])
+
+    assert session["couple_ref"] == "destroy_sample"
+    assert session["event_id"] == "evt_destroy_01"
+    assert event["theme"] == "关系结束前最后一次确认数据归属"
+    assert session["fields"]["description"] == event["theme"]
+    assert session["fields"]["feeling"].startswith("莫然：")
+    assert "林澈" not in session["fields"]["feeling"]
+
+
 @pytest.mark.parametrize(
     ("broken_text", "message"),
     [
@@ -94,6 +128,14 @@ def test_sessions_are_created_on_their_event_day() -> None:
         (
             dumps_md(_script()).replace("    at: 2026-01-10 10:01:00\n", "", 1),
             "sessions[1].actions[0].at",
+        ),
+        (
+            dumps_md(_script()).replace(
+                "    unlock_at: 2026-02-11 09:04:00",
+                "    unlock_at: 2026-02-09 09:04:00",
+                1,
+            ),
+            "unlock_at must be later",
         ),
     ],
 )

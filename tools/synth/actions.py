@@ -16,6 +16,7 @@ def build_script(
     weeks: int,
 ) -> dict[str, Any]:
     base = datetime.fromisoformat(f"{timeline[0]['date']} 09:00:00")
+    script_timeline = [*timeline, _destroy_event(persona_seed, base)]
     return {
         "schema_version": 1,
         "metadata": {
@@ -25,12 +26,12 @@ def build_script(
             "notes": "人可读剧本；重放时不调用大模型。",
         },
         "personas": persona_seed,
-        "timeline": timeline,
+        "timeline": script_timeline,
         "couples": [
             _couple_entry(primary_couple(persona_seed), "primary"),
             _couple_entry(_destroy_couple(persona_seed), "destroy_sample"),
         ],
-        "sessions": _session_actions(timeline, base),
+        "sessions": _session_actions(script_timeline, base),
         "destroy_actions": [
             {
                 "id": "destroy_01",
@@ -68,6 +69,24 @@ def _destroy_couple(seed: dict[str, Any]) -> dict[str, Any]:
 
 def _couple_entry(couple: dict[str, Any], ref: str) -> dict[str, Any]:
     return {"ref": ref, "a": couple["a"], "b": couple["b"], "password": "synth-pass-20"}
+
+
+def _destroy_event(seed: dict[str, Any], base: datetime) -> dict[str, Any]:
+    couple = _destroy_couple(seed)
+    day = (base + timedelta(days=44)).date().isoformat()
+    name_a = couple["a"]["display_name"]
+    name_b = couple["b"]["display_name"]
+    return {
+        "id": "evt_destroy_01",
+        "date": day,
+        "perspective": "shared",
+        "theme": "关系结束前最后一次确认数据归属",
+        "seed_from": None,
+        "inner_voice": {
+            "A": f"{name_a}：我想把结束处理清楚，不再让旧记录反复牵动彼此。",
+            "B": f"{name_b}：我接受关系到这里，也希望销毁数据这件事被认真完成。",
+        },
+    }
 
 
 def _session_actions(timeline: list[dict[str, Any]], base: datetime) -> list[dict[str, Any]]:
@@ -114,8 +133,8 @@ def _session_actions(timeline: list[dict[str, Any]], base: datetime) -> list[dic
                 {"type": "request_unlock", "at_offset_hours": 1, "unlock_after": {"days": 45}},
                 {
                     "type": "reschedule_unlock",
-                    "at_offset_hours": 2,
-                    "unlock_after": {"days": 31},
+                    "at_offset_hours": 16 * 24,
+                    "unlock_after": {"days": 17},
                 },
             ],
         ),
@@ -136,7 +155,7 @@ def _session_actions(timeline: list[dict[str, Any]], base: datetime) -> list[dic
                 },
             ],
         ),
-        ("sess_07_destroy_seed", "destroy_sample", "A", 6, "destroyed", []),
+        ("sess_07_destroy_seed", "destroy_sample", "A", -1, "destroyed", []),
     ]
     sessions: list[dict[str, Any]] = []
     for index, (ref, couple_ref, author, event_index, branch, actions) in enumerate(specs):
