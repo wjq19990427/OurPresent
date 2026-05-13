@@ -1,38 +1,37 @@
 ---
 schema_version: 1
+outcome: together
+outcome_reason: 林澈和夏予仍愿意通过延时共享把误会慢慢说清。
 metadata:
-  name: 任务20_合成数据剧本
+  name: lin_xia_together
   weeks: 6
   generated_at: 2026-01-05 09:00:00
   notes: 人可读剧本；重放时不调用大模型。
 personas:
-  seed_id: 任务20_示例角色卡
+  seed_id: lin_xia_together
   start_date: 2026-01-05
-  couples:
-    - id: cp_primary_seed
-      role: primary
-      a:
-        id: A
-        username: 合成林澈
-        display_name: 林澈
-        tone: 敏感但愿意承担，遇到压力会先收紧自己
-        communication_style: 先写下来整理，再用短句确认边界
-        relationship_stage: 摩擦
-        emotional_anchors:
-          - 刚搬进共同租住的小房子
-          - 工作上线周期让作息变得不稳定
-          - 想证明自己可靠但害怕显得控制
-      b:
-        id: B
-        username: 合成夏予
-        display_name: 夏予
-        tone: 外向温和，失落时容易用玩笑带过
-        communication_style: 偏即时沟通，希望情绪被当场接住
-        relationship_stage: 摩擦
-        emotional_anchors:
-          - 期待共同生活里的仪式感
-          - 近期和朋友的比较让安全感下降
-          - 想要更多主动的解释和拥抱
+  a:
+    id: A
+    username: 合成林澈
+    display_name: 林澈
+    tone: 敏感但愿意承担，遇到压力会先收紧自己
+    communication_style: 先写下来整理，再用短句确认边界
+    relationship_stage: 摩擦
+    emotional_anchors:
+      - 刚搬进共同租住的小房子
+      - 工作上线周期让作息变得不稳定
+      - 想证明自己可靠但害怕显得控制
+  b:
+    id: B
+    username: 合成夏予
+    display_name: 夏予
+    tone: 外向温和，失落时容易用玩笑带过
+    communication_style: 偏即时沟通，希望情绪被当场接住
+    relationship_stage: 摩擦
+    emotional_anchors:
+      - 期待共同生活里的仪式感
+      - 近期和朋友的比较让安全感下降
+      - 想要更多主动的解释和拥抱
 couples:
   - ref: primary
     a:
@@ -70,10 +69,12 @@ coverage:
     - 立即解锁
     - 伴侣读取后评论互动
   skipped:
-    - 冻结期销毁完整链路（见 任务20_销毁链路剧本.md）
+    - 冻结期销毁完整链路
 ---
 
-# 任务20_合成数据剧本
+# lin_xia_together
+
+结局：`together`。林澈和夏予仍愿意通过延时共享把误会慢慢说清。
 
 这份 Markdown 是合成数据的唯一剧本来源。上方 frontmatter 放角色卡、关系
 和覆盖范围等结构字段；下方正文按时间顺序排列事件、记录和后续行为。

@@ -1,0 +1,31 @@
+{
+  "seed_id": "mo_qin_destroyed",
+  "start_date": "2026-04-06",
+  "expected_outcome": "destroyed",
+  "a": {
+    "id": "A",
+    "username": "合成莫然",
+    "display_name": "莫然",
+    "tone": "理性克制，习惯把分别处理得体面",
+    "communication_style": "清楚说明决定和后续边界",
+    "relationship_stage": "冷淡",
+    "emotional_anchors": [
+      "长期异地后的疲惫",
+      "共同相册已经很少新增",
+      "希望销毁数据后各自轻装离开"
+    ]
+  },
+  "b": {
+    "id": "B",
+    "username": "合成秦青",
+    "display_name": "秦青",
+    "tone": "柔软但已经接受关系结束",
+    "communication_style": "先确认对方感受，再讨论实际安排",
+    "relationship_stage": "冷淡",
+    "emotional_anchors": [
+      "不想继续保存旧记录反复回看",
+      "希望解绑过程清楚而不互相指责",
+      "愿意尊重冻结期后的销毁决定"
+    ]
+  }
+}

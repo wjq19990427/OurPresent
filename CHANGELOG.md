@@ -13,6 +13,7 @@
 ### 合成剧本生成端重构启动
 
 - **task-20c 任务卡入库**：persona 改"一份 JSON = 一对情侣"、`run_synth.py` 一次输出一份剧本、结局（在一起 / 销毁）由 LLM 在生成时动态判断写入剧本 frontmatter；离线 fallback 读 persona 的 `expected_outcome`，CLI `--outcome` 可显式覆盖；与 task-21 核心文件零交集，可并行 Wave 1
+- **task-20c 实现**：合成生成端切到单 persona / 单剧本流程，Minimax 输出扩展为 `outcome`、`outcome_reason`、`events`，离线样例拆为 `lin_xia_together` 与 `mo_qin_destroyed`；`outcome=destroyed` 剧本保留正常延时共享前段，并在结尾通过 `destroy_actions` 触发冻结期销毁。
 
 ### 合成剧本可读性优化启动
 

@@ -5,8 +5,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from tools.synth.persona import primary_couple
-
 TIME_FMT = "%Y-%m-%d %H:%M:%S"
 
 
@@ -78,119 +76,80 @@ PRIMARY_SESSION_SPECS = [
 ]
 
 DESTROY_SESSION_SPECS = [
-    ("sess_destroy_01_seed", "destroy_sample", "A", 0, "destroyed", []),
+    ("sess_07_cold_confirm", "primary", "A", 6, "destroyed", []),
 ]
 
 
 def build_script(
     persona_seed: dict[str, Any],
     timeline: list[dict[str, Any]],
+    outcome: str,
+    outcome_reason: str,
     weeks: int,
 ) -> dict[str, Any]:
     base = datetime.fromisoformat(f"{timeline[0]['date']} 09:00:00")
-    couple = primary_couple(persona_seed)
+    session_specs = list(PRIMARY_SESSION_SPECS)
+    destroy_actions: list[dict[str, Any]] = []
+    covered = [
+        "永久私密",
+        "延时共享_1小时",
+        "延时共享_1天",
+        "延时共享_1周",
+        "延时共享_1个月",
+        "调整解锁时间_推后",
+        "调整解锁时间_提前",
+        "立即解锁",
+        "伴侣读取后评论互动",
+    ]
+    skipped: list[str] = []
+    if outcome == "destroyed":
+        session_specs.extend(DESTROY_SESSION_SPECS)
+        destroy_actions = [_destroy_action(base)]
+        covered.append("冻结期销毁完整链路")
+    else:
+        skipped.append("冻结期销毁完整链路")
+
     return {
         "schema_version": 1,
+        "outcome": outcome,
+        "outcome_reason": outcome_reason,
         "metadata": {
-            "name": "任务20_合成数据剧本",
+            "name": str(persona_seed["seed_id"]),
             "weeks": weeks,
             "generated_at": base.strftime(TIME_FMT),
             "notes": "人可读剧本；重放时不调用大模型。",
         },
-        "personas": _persona_seed_for_couple(persona_seed, couple),
+        "personas": _persona_seed(persona_seed),
         "timeline": timeline,
         "couples": [
-            _couple_entry(couple, "primary"),
+            _couple_entry(persona_seed, "primary"),
         ],
-        "sessions": _session_actions(timeline, PRIMARY_SESSION_SPECS),
-        "destroy_actions": [],
+        "sessions": _session_actions(timeline, session_specs),
+        "destroy_actions": destroy_actions,
         "coverage": {
-            "covered": [
-                "永久私密",
-                "延时共享_1小时",
-                "延时共享_1天",
-                "延时共享_1周",
-                "延时共享_1个月",
-                "调整解锁时间_推后",
-                "调整解锁时间_提前",
-                "立即解锁",
-                "伴侣读取后评论互动",
-            ],
-            "skipped": ["冻结期销毁完整链路（见 任务20_销毁链路剧本.md）"],
+            "covered": covered,
+            "skipped": skipped,
         },
     }
 
 
-def build_destroy_script(persona_seed: dict[str, Any]) -> dict[str, Any]:
-    base = datetime.fromisoformat(f"{persona_seed.get('start_date', '2026-01-05')} 09:00:00")
-    couple = _destroy_couple(persona_seed)
-    timeline = [_destroy_event(persona_seed, base)]
-    return {
-        "schema_version": 1,
-        "metadata": {
-            "name": "任务20_销毁链路剧本",
-            "weeks": 1,
-            "generated_at": base.strftime(TIME_FMT),
-            "notes": "单独验证关系解除与数据销毁；重放时不调用大模型。",
-        },
-        "personas": _persona_seed_for_couple(persona_seed, couple),
-        "timeline": timeline,
-        "couples": [
-            _couple_entry(couple, "destroy_sample"),
-        ],
-        "sessions": _session_actions(timeline, DESTROY_SESSION_SPECS),
-        "destroy_actions": [_destroy_action(base)],
-        "coverage": {
-            "covered": ["冻结期销毁完整链路"],
-            "skipped": [
-                "永久私密",
-                "延时共享与评论互动（见 任务20_合成数据剧本.md）",
-            ],
-        },
-    }
+def _couple_entry(persona_seed: dict[str, Any], ref: str) -> dict[str, Any]:
+    return {"ref": ref, "a": persona_seed["a"], "b": persona_seed["b"], "password": "synth-pass-20"}
 
 
-def _destroy_couple(seed: dict[str, Any]) -> dict[str, Any]:
-    for couple in seed["couples"]:
-        if couple.get("role") == "destroy_sample":
-            return couple
-    return seed["couples"][-1]
-
-
-def _couple_entry(couple: dict[str, Any], ref: str) -> dict[str, Any]:
-    return {"ref": ref, "a": couple["a"], "b": couple["b"], "password": "synth-pass-20"}
-
-
-def _persona_seed_for_couple(seed: dict[str, Any], couple: dict[str, Any]) -> dict[str, Any]:
+def _persona_seed(seed: dict[str, Any]) -> dict[str, Any]:
     return {
         "seed_id": seed.get("seed_id"),
         "start_date": seed.get("start_date"),
-        "couples": [couple],
-    }
-
-
-def _destroy_event(seed: dict[str, Any], base: datetime) -> dict[str, Any]:
-    couple = _destroy_couple(seed)
-    day = (base + timedelta(days=44)).date().isoformat()
-    name_a = couple["a"]["display_name"]
-    name_b = couple["b"]["display_name"]
-    return {
-        "id": "evt_destroy_01",
-        "date": day,
-        "perspective": "shared",
-        "theme": "关系结束前最后一次确认数据归属",
-        "seed_from": None,
-        "inner_voice": {
-            "A": f"{name_a}：我想把结束处理清楚，不再让旧记录反复牵动彼此。",
-            "B": f"{name_b}：我接受关系到这里，也希望销毁数据这件事被认真完成。",
-        },
+        "a": seed["a"],
+        "b": seed["b"],
     }
 
 
 def _destroy_action(base: datetime) -> dict[str, Any]:
     return {
         "id": "destroy_01",
-        "couple_ref": "destroy_sample",
+        "couple_ref": "primary",
         "initiator": "A",
         "start_uncouple_at": (base + timedelta(days=45, hours=9)).strftime(TIME_FMT),
         "destroy_at": (base + timedelta(days=45, hours=10)).strftime(TIME_FMT),

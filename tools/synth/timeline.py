@@ -7,28 +7,36 @@ from datetime import date, timedelta
 from typing import Any
 
 from tools.synth.minimax_client import MinimaxClient
-from tools.synth.persona import primary_couple
+from tools.synth.persona import OUTCOMES
 
 
 def generate_timeline(
     persona_seed: dict[str, Any],
     weeks: int = 6,
     client: MinimaxClient | None = None,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     if weeks < 4 or weeks > 12:
         raise ValueError("weeks must be between 4 and 12")
     if client is None:
         return deterministic_timeline(persona_seed, weeks)
     payload = client.generate_json(_timeline_prompt(persona_seed, weeks))
+    outcome = _validate_outcome(payload.get("outcome"))
+    outcome_reason = payload.get("outcome_reason")
+    if not isinstance(outcome_reason, str) or not outcome_reason.strip():
+        raise ValueError("Minimax timeline response must contain outcome_reason")
     events = payload.get("events")
     if not isinstance(events, list):
         raise ValueError("Minimax timeline response must contain an events list")
     validate_timeline(events)
-    return events
+    return {
+        "outcome": outcome,
+        "outcome_reason": outcome_reason.strip(),
+        "events": events,
+    }
 
 
-def deterministic_timeline(persona_seed: dict[str, Any], weeks: int) -> list[dict[str, Any]]:
-    couple = primary_couple(persona_seed)
+def deterministic_timeline(persona_seed: dict[str, Any], weeks: int) -> dict[str, Any]:
+    outcome = _validate_outcome(persona_seed.get("expected_outcome", "together"))
     anchor = date.fromisoformat(persona_seed.get("start_date", "2026-01-05"))
     themes = [
         (
@@ -92,12 +100,16 @@ def deterministic_timeline(persona_seed: dict[str, Any], weeks: int) -> list[dic
                 "theme": theme,
                 "seed_from": "sess_06_share_now" if index == 5 else None,
                 "inner_voice": {
-                    "A": f"{couple['a']['display_name']}：{feeling_a}",
-                    "B": f"{couple['b']['display_name']}：{feeling_b}",
+                    "A": f"{persona_seed['a']['display_name']}：{feeling_a}",
+                    "B": f"{persona_seed['b']['display_name']}：{feeling_b}",
                 },
             }
         )
-    return events
+    return {
+        "outcome": outcome,
+        "outcome_reason": _default_outcome_reason(persona_seed, outcome),
+        "events": events,
+    }
 
 
 def validate_timeline(events: list[dict[str, Any]]) -> None:
@@ -113,8 +125,24 @@ def validate_timeline(events: list[dict[str, Any]]) -> None:
 def _timeline_prompt(persona_seed: dict[str, Any], weeks: int) -> str:
     return (
         "你是 OurPresent 的合成数据编剧。请基于以下情侣角色卡生成 "
-        f"{weeks} 周的双视角事件时间线，只返回 JSON："
-        '{"events":[{"id":"evt_01","date":"YYYY-MM-DD","perspective":"A|B|shared",'
+        f"{weeks} 周的双视角事件时间线，并判断这对情侣最后是在一起继续延时共享，"
+        "还是走到冻结期后销毁数据。只返回 JSON："
+        '{"outcome":"together|destroyed","outcome_reason":"一行说明原因",'
+        '"events":[{"id":"evt_01","date":"YYYY-MM-DD","perspective":"A|B|shared",'
         '"theme":"...","inner_voice":{"A":"...","B":"..."}}]}。\n\n'
         + json.dumps(persona_seed, ensure_ascii=False, indent=2)
     )
+
+
+def _validate_outcome(value: Any) -> str:
+    if value not in OUTCOMES:
+        raise ValueError("outcome must be together or destroyed")
+    return value
+
+
+def _default_outcome_reason(persona_seed: dict[str, Any], outcome: str) -> str:
+    name_a = persona_seed["a"]["display_name"]
+    name_b = persona_seed["b"]["display_name"]
+    if outcome == "destroyed":
+        return f"{name_a}和{name_b}已经接受关系结束，选择在冻结期后清理共同数据。"
+    return f"{name_a}和{name_b}仍愿意通过延时共享把误会慢慢说清。"

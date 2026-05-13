@@ -1,6 +1,8 @@
 ---
 <!-- schema_version 是解析契约版本，除非工具代码升级，否则不要手改。 -->
 schema_version: 1
+outcome: together
+outcome_reason: 模板默认展示一对仍愿意继续沟通的情侣。
 metadata:
   name: template
   weeks: 1
@@ -9,29 +11,26 @@ metadata:
 personas:
   seed_id: 手写模板
   start_date: 2026-01-05
-  couples:
-    - id: cp_template_seed
-      role: primary
-      a:
-        id: A
-        username: 合成模板A
-        display_name: 模板甲
-        tone: 敏感但愿意表达
-        communication_style: 先写下来整理，再当面确认
-        relationship_stage: 练习沟通
-        emotional_anchors:
-          - 刚开始认真练习记录关系里的小事
-          - 想把难说出口的话用更温和的方式交给对方
-      b:
-        id: B
-        username: 合成模板B
-        display_name: 模板乙
-        tone: 温和直接，期待及时回应
-        communication_style: 先确认感受，再讨论下一步
-        relationship_stage: 练习沟通
-        emotional_anchors:
-          - 希望重要情绪不要只靠猜
-          - 愿意给对方一点整理时间
+  a:
+    id: A
+    username: 合成模板A
+    display_name: 模板甲
+    tone: 敏感但愿意表达
+    communication_style: 先写下来整理，再当面确认
+    relationship_stage: 练习沟通
+    emotional_anchors:
+      - 刚开始认真练习记录关系里的小事
+      - 想把难说出口的话用更温和的方式交给对方
+  b:
+    id: B
+    username: 合成模板B
+    display_name: 模板乙
+    tone: 温和直接，期待及时回应
+    communication_style: 先确认感受，再讨论下一步
+    relationship_stage: 练习沟通
+    emotional_anchors:
+      - 希望重要情绪不要只靠猜
+      - 愿意给对方一点整理时间
 couples:
   - ref: primary
     a:
@@ -47,6 +46,8 @@ coverage:
 ---
 
 # 最小可重放 Markdown 剧本模板
+
+结局：`together`。模板默认展示一对仍愿意继续沟通的情侣。
 
 这份模板可以直接执行，用来确认格式正确。复制它以后，通常只需要改三类内容：
 

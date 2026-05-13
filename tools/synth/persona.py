@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-DEFAULT_PERSONA_PATH = Path(__file__).resolve().parent / "personas" / "sample_couples.json"
+DEFAULT_PERSONA_PATH = Path(__file__).resolve().parent / "personas" / "lin_xia_together.json"
+OUTCOMES = {"together", "destroyed"}
 
 
 def load_persona_seed(path: Path | None = None) -> dict[str, Any]:
@@ -18,30 +19,27 @@ def load_persona_seed(path: Path | None = None) -> dict[str, Any]:
 
 
 def validate_persona_seed(seed: dict[str, Any]) -> None:
-    couples = seed.get("couples")
-    if not isinstance(couples, list) or not couples:
-        raise ValueError("persona seed must contain at least one couple")
+    for key in ("seed_id", "start_date", "a", "b"):
+        if key not in seed:
+            raise ValueError(f"persona seed missing required field: {key}")
+    if seed.get("expected_outcome") is not None and seed["expected_outcome"] not in OUTCOMES:
+        raise ValueError("persona expected_outcome must be together or destroyed")
 
     required = {
         "id",
+        "username",
         "display_name",
         "tone",
         "communication_style",
         "relationship_stage",
         "emotional_anchors",
     }
-    for couple in couples:
-        for side in ("a", "b"):
-            card = couple.get(side)
-            if not isinstance(card, dict):
-                raise ValueError(f"couple {couple.get('id', '<unknown>')} missing persona {side}")
-            missing = sorted(required - set(card))
-            if missing:
-                raise ValueError(f"persona {card.get('id', side)} missing fields: {missing}")
-
-
-def primary_couple(seed: dict[str, Any]) -> dict[str, Any]:
-    for couple in seed["couples"]:
-        if couple.get("role") == "primary":
-            return couple
-    return seed["couples"][0]
+    for side in ("a", "b"):
+        card = seed.get(side)
+        if not isinstance(card, dict):
+            raise ValueError(f"persona seed missing persona {side}")
+        missing = sorted(required - set(card))
+        if missing:
+            raise ValueError(f"persona {card.get('id', side)} missing fields: {missing}")
+        if not isinstance(card["emotional_anchors"], list) or not card["emotional_anchors"]:
+            raise ValueError(f"persona {card.get('id', side)} must contain emotional_anchors")

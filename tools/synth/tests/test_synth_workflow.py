@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.synth.actions import build_destroy_script, build_script
+from tools.synth.actions import build_script
 from tools.synth.driver import SynthConfigError, run_script, run_scripts, validate_synth_storage
 from tools.synth.persona import load_persona_seed
 from tools.synth.script_io import dumps_md, load_md, loads_md
@@ -17,11 +17,25 @@ from tools.synth.timeline import deterministic_timeline
 def _script() -> dict:
     seed = load_persona_seed()
     timeline = deterministic_timeline(seed, weeks=6)
-    return build_script(seed, timeline, weeks=6)
+    return build_script(
+        seed,
+        timeline["events"],
+        timeline["outcome"],
+        timeline["outcome_reason"],
+        weeks=6,
+    )
 
 
 def _destroy_script() -> dict:
-    return build_destroy_script(load_persona_seed())
+    seed = load_persona_seed(Path("tools/synth/personas/mo_qin_destroyed.json"))
+    timeline = deterministic_timeline(seed, weeks=6)
+    return build_script(
+        seed,
+        timeline["events"],
+        timeline["outcome"],
+        timeline["outcome_reason"],
+        weeks=6,
+    )
 
 
 def test_primary_script_writes_expected_distribution(
@@ -51,7 +65,7 @@ def test_primary_script_writes_expected_distribution(
     assert dissolved == 0
 
 
-def test_destroy_script_writes_dissolved_couple_only(
+def test_destroyed_outcome_writes_normal_records_then_dissolves(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -70,6 +84,8 @@ def test_destroy_script_writes_dissolved_couple_only(
     assert couples == 1
     assert sessions == 0
     assert dissolved == 1
+    assert _destroy_script()["outcome"] == "destroyed"
+    assert len(_destroy_script()["sessions"]) > 1
 
 
 def test_combined_scripts_write_expected_distribution(
@@ -119,16 +135,16 @@ def test_each_script_contains_one_couple_story() -> None:
     destroy = _destroy_script()
 
     assert [couple["ref"] for couple in primary["couples"]] == ["primary"]
-    assert [couple["role"] for couple in primary["personas"]["couples"]] == ["primary"]
+    assert primary["outcome"] == "together"
+    assert primary["personas"]["a"]["display_name"] == "林澈"
     assert {session["couple_ref"] for session in primary["sessions"]} == {"primary"}
     assert primary["destroy_actions"] == []
 
-    assert [couple["ref"] for couple in destroy["couples"]] == ["destroy_sample"]
-    assert [couple["role"] for couple in destroy["personas"]["couples"]] == [
-        "destroy_sample"
-    ]
-    assert {session["couple_ref"] for session in destroy["sessions"]} == {"destroy_sample"}
-    assert {action["couple_ref"] for action in destroy["destroy_actions"]} == {"destroy_sample"}
+    assert [couple["ref"] for couple in destroy["couples"]] == ["primary"]
+    assert destroy["outcome"] == "destroyed"
+    assert destroy["personas"]["a"]["display_name"] == "莫然"
+    assert {session["couple_ref"] for session in destroy["sessions"]} == {"primary"}
+    assert {action["couple_ref"] for action in destroy["destroy_actions"]} == {"primary"}
 
 
 def test_sessions_are_created_on_their_event_day() -> None:
@@ -161,14 +177,14 @@ def test_one_month_unlock_can_be_rescheduled_earlier() -> None:
     ]
 
 
-def test_destroy_sample_uses_its_own_timeline_event() -> None:
+def test_destroyed_outcome_keeps_cold_stage_session_at_the_end() -> None:
     script = _destroy_script()
-    session = next(item for item in script["sessions"] if item["ref"] == "sess_destroy_01_seed")
+    session = next(item for item in script["sessions"] if item["ref"] == "sess_07_cold_confirm")
     event = next(item for item in script["timeline"] if item["id"] == session["event_id"])
 
-    assert session["couple_ref"] == "destroy_sample"
-    assert session["event_id"] == "evt_destroy_01"
-    assert event["theme"] == "关系结束前最后一次确认数据归属"
+    assert session["couple_ref"] == "primary"
+    assert session["branch"] == "destroyed"
+    assert event["theme"] == "月末一起复盘关系节奏"
     assert session["fields"]["description"] == event["theme"]
     assert session["fields"]["feeling"].startswith("莫然：")
     assert "林澈" not in session["fields"]["feeling"]
@@ -238,7 +254,7 @@ def test_markdown_session_text_edit_reaches_database(
     db_path = tmp_path / "synth" / "data" / "database.db"
     script_path = tmp_path / "edited.md"
     new_description = "一次被手工改写后的共享记录描述"
-    original = Path("tools/synth/scripts/任务20_合成数据剧本.md").read_text("utf-8")
+    original = Path("tools/synth/scripts/lin_xia_together.md").read_text("utf-8")
     edited = original.replace(
         "description: 一次共享记录被读到后的回复",
         f"description: {new_description}",

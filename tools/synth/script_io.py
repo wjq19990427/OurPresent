@@ -15,7 +15,16 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 FENCE_RE = re.compile(r"^```yaml +(timeline|session|destroy_actions)\n(.*?)^```", re.M | re.S)
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 
-FRONTMATTER_KEYS = ("schema_version", "metadata", "personas", "couples", "coverage")
+FRONTMATTER_KEYS = (
+    "schema_version",
+    "outcome",
+    "outcome_reason",
+    "metadata",
+    "personas",
+    "couples",
+    "coverage",
+)
+OUTCOMES = {"together", "destroyed"}
 ACTION_TYPES = {"request_unlock", "reschedule_unlock", "unlock_now", "add_comment"}
 
 
@@ -43,6 +52,8 @@ def dumps_md(script: dict[str, Any]) -> str:
         "---",
         "",
         f"# {script['metadata']['name']}",
+        "",
+        f"结局：`{script['outcome']}`。{script['outcome_reason']}",
         "",
         "这份 Markdown 是合成数据的唯一剧本来源。上方 frontmatter 放角色卡、关系",
         "和覆盖范围等结构字段；下方正文按时间顺序排列事件、记录和后续行为。",
@@ -112,6 +123,9 @@ def validate_script(script: dict[str, Any]) -> None:
     for key in FRONTMATTER_KEYS:
         if key not in script:
             raise ScriptFormatError(f"script missing required field: {key}")
+    if script["outcome"] not in OUTCOMES:
+        raise ScriptFormatError("script.outcome must be together or destroyed")
+    _require_text(script["outcome_reason"], "script.outcome_reason")
 
     metadata = _require_mapping(script["metadata"], "metadata")
     for key in ("name", "weeks", "generated_at"):
@@ -119,11 +133,7 @@ def validate_script(script: dict[str, Any]) -> None:
     _require_time(metadata["generated_at"], "metadata.generated_at")
 
     personas = _require_mapping(script["personas"], "personas")
-    persona_couples = _require_list(personas.get("couples"), "personas.couples")
-    if not persona_couples:
-        raise ScriptFormatError("personas.couples must contain at least one couple")
-    for index, couple in enumerate(persona_couples):
-        _validate_persona_couple(couple, f"personas.couples[{index}]")
+    _validate_persona_pair(personas, "personas")
 
     couples = _require_list(script["couples"], "couples")
     couple_refs: set[str] = set()
@@ -429,7 +439,7 @@ def _parse_scalar(text: str) -> Any:
     return text
 
 
-def _validate_persona_couple(value: Any, path: str) -> None:
+def _validate_persona_pair(value: Any, path: str) -> None:
     couple = _require_mapping(value, path)
     for side in ("a", "b"):
         card = _require_mapping(couple.get(side), f"{path}.{side}")
