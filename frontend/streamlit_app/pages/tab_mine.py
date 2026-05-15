@@ -149,7 +149,11 @@ def _render_new_record_entry(*, has_sessions: bool) -> None:
 
 def render_mine_tab(db: dict) -> None:
     sessions = sorted(
-        list_sessions_for_user(_uid()),
+        [
+            session
+            for session in list_sessions_for_user(_uid())
+            if session.visibility != "shared"
+        ],
         key=lambda session: session.upload_time,
         reverse=True,
     )
@@ -165,19 +169,19 @@ def render_mine_tab(db: dict) -> None:
 
     cols = st.columns(3)
     for index, session in enumerate(sessions):
-        render_card(cols[index % 3], session, "mine_selected")
+        target_col = cols[index % 3]
+        render_card(target_col, session, "mine_selected")
+        if selected_id == session.session_id:
+            with target_col:
+                mode = "pending" if session.status == "pending" else "final"
+                render_detail(
+                    session,
+                    mode=mode,
+                    read_only=_is_frozen(),
+                    selected_state_key="mine_selected",
+                    show_comments=False,
+                    show_file_preview=False,
+                )
 
-    if selected_id:
-        session = next((item for item in sessions if item.session_id == selected_id), None)
-        if session:
-            st.divider()
-            st.markdown(f"### 详情 — {selected_id}")
-            mode = "pending" if session.status == "pending" else "final"
-            render_detail(
-                session,
-                mode=mode,
-                read_only=_is_frozen(),
-                selected_state_key="mine_selected",
-            )
-        else:
-            st.session_state["mine_selected"] = None
+    if selected_id and not any(item.session_id == selected_id for item in sessions):
+        st.session_state["mine_selected"] = None

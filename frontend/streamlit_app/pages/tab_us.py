@@ -168,7 +168,7 @@ def render_us_tab(db: dict) -> None:
 
         if selected_id == session.session_id:
             with target_col:
-                render_comments(session)
+                render_comments(session, key_scope="us_inline")
 
     if selected_id and not any(item.session_id == selected_id for item in sessions):
         st.session_state["us_selected"] = None

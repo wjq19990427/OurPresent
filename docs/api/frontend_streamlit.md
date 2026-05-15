@@ -44,7 +44,7 @@ def _session_thumb(session: SessionRecord)
 - 返回 `(缩略图, 文本标签)`
 - 行为：
   - 图片：返回 PIL Image
-  - 视频：调用 `video_thumbnail()`
+  - 视频：返回文件名提示；实际播放由卡片预览渲染负责
   - 文本：返回文本预览
   - 无文件：回退到 `description` 预览
 
@@ -135,11 +135,12 @@ def render_field_inputs(
 #### 评论区
 
 ```python
-def render_comments(session: SessionRecord) -> None
+def render_comments(session: SessionRecord, *, key_scope: str = "comments") -> None
 ```
 
 - 渲染评论列表
 - 仅对当前用户自己写的评论提供删除按钮，并在删除前显示确认警示
+- `key_scope` 用于给评论区内部 widgets 做 key 作用域隔离，避免同一条评论在不同 tab / 详情区重复渲染时发生 key 冲突
 - 发送评论时调用 `add_comment()`
 
 #### Session 卡片
@@ -179,6 +180,7 @@ def render_detail(
     *,
     selected_state_key: str,
     show_comments: bool | None = None,
+    show_file_preview: bool = True,
 ) -> None
 ```
 
@@ -192,6 +194,7 @@ def render_detail(
 | `read_only` | 冻结期或查看共享记录时为 `True` |
 | `selected_state_key` | 取消或归档后需要清空的选中状态 key（关键字参数，必填） |
 | `show_comments` | `None` 时按 visibility 自动判断；显式传入时覆盖评论区展示 |
+| `show_file_preview` | `False` 时隐藏详情区的 `📁 文件预览` 展开面板 |
 
 行为说明：
 
@@ -289,14 +292,19 @@ def render_mine_tab(db: dict) -> None
 - 创建记录时调用：
   - `save_session_final()`
   - `save_session_pending()`
-- 时间线读取当前用户全部 `SessionRecord`
-- 过滤条件：`session.user_id == current_user_id`
+- 时间线读取当前用户未共享的 `SessionRecord`
+- 过滤条件：`session.user_id == current_user_id and session.visibility != "shared"`
 - 按 `upload_time` 倒序
 - 每条卡片展示 `_status_badge()` 的 4 种状态标签
+- 卡片外层直接渲染首个附件预览；若首个附件是视频，则在卡片中直接可播放
+- 点击 `查看/编辑` 后，详情区紧贴所属卡片内嵌展开；再次点击同一按钮会收起，不在页面底部集中展开
+- 已进入 `shared` 的记录不再出现在「我的」，避免与「我们」重复
 - 详情区承载当前用户自己的所有记录操作：
   - 草稿：继续编辑字段、完成
-  - 仅自己 / 已分享：编辑字段、申请共享 / 撤回
+  - 仅自己：编辑字段、申请共享
   - 等待开放中：追加内容、修改时间、立即解锁、撤回共享申请
+- 「我的」tab 不展示评论区；评论互动仅保留在「我们」tab
+- 「我的」tab 不展示详情区的 `📁 文件预览`；附件预览统一放在卡片外层
 
 ```python
 def render_settings_tab(db: dict) -> None

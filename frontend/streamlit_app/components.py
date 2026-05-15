@@ -31,7 +31,7 @@ from backend.domain.models import Couple, Report, SessionRecord, User
 from backend.infrastructure.database.couples_repo import get_couple_for_user
 from backend.infrastructure.database.db import parse_dt
 from backend.infrastructure.database.users_repo import get_user_by_id
-from backend.infrastructure.media import pil_to_png_bytes, video_thumbnail
+from backend.infrastructure.media import pil_to_png_bytes
 
 _UNLOCK_PRESETS = (
     "立即",
@@ -96,7 +96,7 @@ def _session_thumb(session: SessionRecord):
         except Exception:
             return None, "图片读取失败"
     if ext == ".mp4":
-        return video_thumbnail(first)
+        return None, f"🎞 {files[0]['original_name']}"
     if ext in TEXT_EXTS:
         try:
             preview = first.read_text(encoding="utf-8", errors="ignore")[:80]
@@ -104,6 +104,37 @@ def _session_thumb(session: SessionRecord):
         except Exception:
             return None, "文本读取失败"
     return None, f"📎 {files[0]['original_name']}"
+
+
+def _render_session_preview(session: SessionRecord) -> None:
+    files = session.files
+    if not files:
+        text = session.description
+        preview = (text[:80] + "…") if len(text) > 80 else text
+        st.markdown(f"```\n{preview}\n```")
+        return
+
+    first = Path(files[0]["path"])
+    ext = first.suffix.lower()
+    if ext in {".jpg", ".jpeg", ".png", ".gif", ".webp"}:
+        thumb, label = _session_thumb(session)
+        if thumb:
+            st.image(pil_to_png_bytes(thumb), width="stretch")
+            return
+        st.markdown(f"```\n{label[:120]}\n```")
+        return
+    if ext == ".mp4" and first.exists():
+        st.video(str(first))
+        return
+    if ext in TEXT_EXTS:
+        try:
+            preview = first.read_text(encoding="utf-8", errors="ignore")[:80]
+            st.markdown(f"```\n{preview}\n```")
+            return
+        except Exception:
+            st.markdown("```\n文本读取失败\n```")
+            return
+    st.markdown(f"```\n📎 {files[0]['original_name']}\n```")
 
 
 def _days_until_unlock(session: SessionRecord) -> int:
@@ -361,10 +392,10 @@ def _with_field_values(session: SessionRecord, values: dict) -> SessionRecord:
     return replace(session, **updates)
 
 
-def render_comments(session: SessionRecord) -> None:
+def render_comments(session: SessionRecord, *, key_scope: str = "comments") -> None:
     st.markdown("#### 💬 评论区")
     comments = session.comments
-    pending_delete_key = f"pending_delete_cmt_{session.session_id}"
+    pending_delete_key = f"{key_scope}_pending_delete_cmt_{session.session_id}"
     if not comments:
         st.caption("暂无评论")
     for comment in comments:
@@ -375,25 +406,37 @@ def render_comments(session: SessionRecord) -> None:
             st.markdown(f"**{author_name}** · {comment['created_at']}\n\n{comment['text']}")
         with col_del:
             if comment.get("author") == _uid():
-                if st.button("🗑", key=f"del_cmt_{comment['id']}", help="删除评论"):
+                if st.button(
+                    "🗑",
+                    key=f"{key_scope}_del_cmt_{comment['id']}",
+                    help="删除评论",
+                ):
                     st.session_state[pending_delete_key] = comment["id"]
                     st.rerun()
         if st.session_state.get(pending_delete_key) == comment["id"]:
             st.warning("确认删除这条评论？删除后无法恢复。", icon="⚠️")
             confirm_col, cancel_col = st.columns(2)
             with confirm_col:
-                if st.button("确认删除", key=f"confirm_del_cmt_{comment['id']}", width="stretch"):
+                if st.button(
+                    "确认删除",
+                    key=f"{key_scope}_confirm_del_cmt_{comment['id']}",
+                    width="stretch",
+                ):
                     delete_comment(session.session_id, comment["id"], _uid())
                     st.session_state.pop(pending_delete_key, None)
                     st.rerun()
             with cancel_col:
-                if st.button("取消", key=f"cancel_del_cmt_{comment['id']}", width="stretch"):
+                if st.button(
+                    "取消",
+                    key=f"{key_scope}_cancel_del_cmt_{comment['id']}",
+                    width="stretch",
+                ):
                     st.session_state.pop(pending_delete_key, None)
                     st.rerun()
     st.divider()
-    comment_key = f"new_cmt_{session.session_id}"
+    comment_key = f"{key_scope}_new_cmt_{session.session_id}"
     new_text = st.text_area("写下评论……", key=comment_key, height=80)
-    if st.button("发送评论", key=f"send_cmt_{session.session_id}"):
+    if st.button("发送评论", key=f"{key_scope}_send_cmt_{session.session_id}"):
         if new_text.strip():
             add_comment(session.session_id, _uid(), new_text.strip())
             del st.session_state[comment_key]
@@ -423,11 +466,7 @@ def render_card(
             st.caption(label)
         if show_recently_shared and _is_recently_shared(session):
             st.success("新近解锁", icon=None)
-        thumb, label = _session_thumb(session)
-        if thumb:
-            st.image(pil_to_png_bytes(thumb), width="stretch")
-        else:
-            st.markdown(f"```\n{label[:120]}\n```")
+        _render_session_preview(session)
 
         n_files = len(session.files)
         n_comments = len(session.comments)
@@ -462,24 +501,26 @@ def render_detail(
     *,
     selected_state_key: str,
     show_comments: bool | None = None,
+    show_file_preview: bool = True,
 ) -> None:
     is_mine = session.user_id == _uid()
     is_text = is_text_session(session)
     skip_keys = {"description"} if is_text else set()
 
-    with st.expander("📁 文件预览", expanded=False):
-        for file_record in session.files:
-            file_path = Path(file_record["path"])
-            ext = file_path.suffix.lower()
-            st.markdown(f"**{file_record['original_name']}**")
-            if ext in {".jpg", ".jpeg", ".png", ".gif", ".webp"} and file_path.exists():
-                st.image(str(file_path), width="stretch")
-            elif ext == ".mp4" and file_path.exists():
-                st.video(str(file_path))
-            elif ext in TEXT_EXTS and file_path.exists():
-                st.text(file_path.read_text(encoding="utf-8", errors="ignore")[:2000])
-            else:
-                st.caption(f"📎 {file_record['original_name']} — 不支持预览")
+    if show_file_preview:
+        with st.expander("📁 文件预览", expanded=False):
+            for file_record in session.files:
+                file_path = Path(file_record["path"])
+                ext = file_path.suffix.lower()
+                st.markdown(f"**{file_record['original_name']}**")
+                if ext in {".jpg", ".jpeg", ".png", ".gif", ".webp"} and file_path.exists():
+                    st.image(str(file_path), width="stretch")
+                elif ext == ".mp4" and file_path.exists():
+                    st.video(str(file_path))
+                elif ext in TEXT_EXTS and file_path.exists():
+                    st.text(file_path.read_text(encoding="utf-8", errors="ignore")[:2000])
+                else:
+                    st.caption(f"📎 {file_record['original_name']} — 不支持预览")
 
     if mode == "final" and session.edit_history:
         with st.expander("🕐 编辑历史", expanded=False):
@@ -655,4 +696,4 @@ def render_detail(
             session.visibility == "shared" or is_mine
         )
     if show_comments:
-        render_comments(session)
+        render_comments(session, key_scope=selected_state_key)
