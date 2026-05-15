@@ -10,7 +10,7 @@
 
 ## 背景
 
-`docs/roadmap.md` Phase 1 候选第 1~3 项与第 7 项落地。本卡是 Phase 1 三张串行卡（W1/W2/W3）中的第一张，**核心约束**：
+`docs/ROADMAP.md` Phase 1 候选第 1~3 项与第 7 项落地。本卡是 Phase 1 三张串行卡（W1/W2/W3）中的第一张，**核心约束**：
 
 - **不改数据库 schema、不改 application 层公开签名**：所有改动都是 UI 层的展示与文案
 - Phase 1 的产出会直接转译成 mini-program 的设计稿，所以**判断"好不好"的标准不是 Streamlit 漂亮不漂亮，而是同样的字段顺序、文案、状态名拿到 mini-program 也合理**
@@ -61,7 +61,7 @@
 - **不要改数据库 schema / domain models / application 层公开签名**——纯 UI 层任务
 - **不要新增"已读回执"或"情绪标记"功能**——这是后续卡的范围，且涉及 schema
 - **不要新增独立的"待解锁" tab**——三视图重组是 W3 卡，本卡不动信息架构
-- **不要触碰 `docs/STATUS.md`、`docs/product-direction.md`、`docs/roadmap.md`、`docs/e2ee-design.md`、`CLAUDE.md`**——架构师独占
+- **不要触碰 `docs/STATUS.md`、`docs/DIRECTION.md`、`docs/ROADMAP.md`、`docs/E2EE.md`、`docs/PRD.md`、`CLAUDE.md`**——架构师独占
 - **不要触碰冻结期销毁链路**——那是 W2 卡的范围
 - **不要做新手引导 / onboarding 流程**——W3 卡的范围
 - **不要为了"看起来更漂亮"加 emoji 装饰**——文案克制，符合"两个相爱的人之间私密记录"的基调
