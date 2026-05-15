@@ -53,7 +53,7 @@ def _render_new_record_entry(*, has_sessions: bool) -> None:
         return
 
     if not has_sessions:
-        st.markdown("### 写下第一条记录")
+        st.markdown("### 写下新的记录")
         st.caption("先留下这一刻。等它完成后，再决定什么时候让对方看见。")
 
     with st.expander("✍️ 写新记录", expanded=not has_sessions):
@@ -162,7 +162,7 @@ def render_mine_tab(db: dict) -> None:
     st.divider()
 
     if not sessions:
-        st.info("还没有记录。")
+        st.info("还没有未共享的记录。")
         return
 
     selected_id = st.session_state.get("mine_selected")
