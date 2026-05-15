@@ -20,7 +20,7 @@ from frontend.streamlit_app.components import (
     _couple,
     _uid,
     render_card,
-    render_detail,
+    render_comments,
     render_weekly_report,
 )
 
@@ -161,19 +161,14 @@ def render_us_tab(db: dict) -> None:
             author_relation="我的记录" if is_mine else "对方的记录",
             show_completion=False,
             show_recently_shared=True,
-            button_label="查看",
+            button_label="评论",
+            show_status_badge=False,
+            show_description=True,
         )
 
         if selected_id == session.session_id:
             with target_col:
-                st.markdown(f"### {_username(session.user_id)} 的记录")
-                render_detail(
-                    session,
-                    mode="final",
-                    read_only=True,
-                    selected_state_key="us_selected",
-                    show_comments=True,
-                )
+                render_comments(session)
 
     if selected_id and not any(item.session_id == selected_id for item in sessions):
         st.session_state["us_selected"] = None

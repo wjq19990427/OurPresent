@@ -139,7 +139,7 @@ def render_comments(session: SessionRecord) -> None
 ```
 
 - 渲染评论列表
-- 提供删除按钮和新增评论输入区
+- 仅对当前用户自己写的评论提供删除按钮，并在删除前显示确认警示
 - 发送评论时调用 `add_comment()`
 
 #### Session 卡片
@@ -155,16 +155,19 @@ def render_card(
     show_completion: bool = True,
     show_recently_shared: bool = False,
     button_label: str | None = None,
+    show_status_badge: bool = True,
+    show_description: bool = False,
 ) -> None
 ```
 
 - 在指定列容器中渲染 session 卡片
-- 展示可选作者徽章、缩略图、文件数、评论数、状态徽章、完整度
+- 展示可选作者徽章、缩略图、文件数、评论数、可选状态徽章、可选描述、完整度
 - `author_relation` 用于在「我们」tab 明确展示 `我的记录` / `对方的记录`，保证手机宽度下仍能一眼区分归属
 - `show_completion=False` 时隐藏“信息完整 / 待补充”提示，用于阅读态时间线
 - `show_recently_shared=True` 时，对 `shared_at` 距当前时间 24 小时内的记录显示 `新近解锁`
 - `button_label` 用于阅读态覆盖按钮文案；「我的」tab 默认仍按作者显示 `查看/编辑`
-- 点击按钮后把 `session_id` 写入 `st.session_state[state_key]`
+- `show_status_badge=False` 时隐藏状态徽章；`show_description=True` 时在计数信息下方直接展示 `description`
+- 点击按钮后切换 `st.session_state[state_key]`：当前卡片已展开则收起，否则展开当前卡片
 
 #### Session 详情区
 
@@ -268,9 +271,10 @@ def render_us_tab(db: dict) -> None
   - 卡片顶部展示 `我的记录 / 对方的记录` 与作者用户名，移动端分栏折叠时仍保留归属信号
   - 共享时间线隐藏“信息完整 / 待补充”写作者元信息
   - `shared_at` 距当前时间 24 小时内的记录显示 `新近解锁`
-  - 卡片按钮统一显示 `查看`
-- 详情区只读展示字段和文件，保留评论互动
-- 详情区与评论区紧邻所属 session 卡片内嵌展示，不再渲染在整条 timeline 末尾
+  - 共享时间线不展示 `[已分享]` 状态徽章；`description` 直接显示在计数信息下方
+  - 卡片按钮统一显示 `评论`
+- 点击 `评论` 后，仅在所属卡片下方内嵌展开评论区；再次点击同一按钮会收起
+- 「我们」tab 不再额外渲染 `xxx 的记录` 标题、文件预览或只读字段详情，避免与卡片预览重复
 - 不展示编辑字段、申请共享、撤回、追加、修改时间、立即解锁等自身记录操作
 
 ```python

@@ -364,6 +364,7 @@ def _with_field_values(session: SessionRecord, values: dict) -> SessionRecord:
 def render_comments(session: SessionRecord) -> None:
     st.markdown("#### 💬 评论区")
     comments = session.comments
+    pending_delete_key = f"pending_delete_cmt_{session.session_id}"
     if not comments:
         st.caption("暂无评论")
     for comment in comments:
@@ -373,9 +374,22 @@ def render_comments(session: SessionRecord) -> None:
         with col_text:
             st.markdown(f"**{author_name}** · {comment['created_at']}\n\n{comment['text']}")
         with col_del:
-            if st.button("🗑", key=f"del_cmt_{comment['id']}", help="删除评论"):
-                delete_comment(session.session_id, comment["id"])
-                st.rerun()
+            if comment.get("author") == _uid():
+                if st.button("🗑", key=f"del_cmt_{comment['id']}", help="删除评论"):
+                    st.session_state[pending_delete_key] = comment["id"]
+                    st.rerun()
+        if st.session_state.get(pending_delete_key) == comment["id"]:
+            st.warning("确认删除这条评论？删除后无法恢复。", icon="⚠️")
+            confirm_col, cancel_col = st.columns(2)
+            with confirm_col:
+                if st.button("确认删除", key=f"confirm_del_cmt_{comment['id']}", width="stretch"):
+                    delete_comment(session.session_id, comment["id"], _uid())
+                    st.session_state.pop(pending_delete_key, None)
+                    st.rerun()
+            with cancel_col:
+                if st.button("取消", key=f"cancel_del_cmt_{comment['id']}", width="stretch"):
+                    st.session_state.pop(pending_delete_key, None)
+                    st.rerun()
     st.divider()
     comment_key = f"new_cmt_{session.session_id}"
     new_text = st.text_area("写下评论……", key=comment_key, height=80)
@@ -396,6 +410,8 @@ def render_card(
     show_completion: bool = True,
     show_recently_shared: bool = False,
     button_label: str | None = None,
+    show_status_badge: bool = True,
+    show_description: bool = False,
 ) -> None:
     with col:
         if author_name:
@@ -416,7 +432,10 @@ def render_card(
         n_files = len(session.files)
         n_comments = len(session.comments)
         st.caption(f"📎 {n_files}  💬 {n_comments}  ·  {session.upload_time[:10]}")
-        st.caption(_status_badge(session))
+        if show_description and session.description.strip():
+            st.write(session.description.strip())
+        if show_status_badge:
+            st.caption(_status_badge(session))
 
         if show_completion:
             missing = validate_session(session)
@@ -429,7 +448,10 @@ def render_card(
         if st.button(
             button_label, key=f"sel_{state_key}_{session.session_id}", width="stretch"
         ):
-            st.session_state[state_key] = session.session_id
+            current = st.session_state.get(state_key)
+            st.session_state[state_key] = (
+                None if current == session.session_id else session.session_id
+            )
             st.rerun()
 
 

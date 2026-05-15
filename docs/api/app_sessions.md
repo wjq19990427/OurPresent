@@ -245,10 +245,11 @@ def add_comment(session_id: str, author_id: str, text: str) -> None
 - 若是 final session，会同步重写 `.md`
 
 ```python
-def delete_comment(session_id: str, comment_id: str) -> None
+def delete_comment(session_id: str, comment_id: str, author_id: str) -> None
 ```
 
 - 删除指定评论
+- 仅评论作者本人可删除；`author_id` 与评论作者不一致时抛 `ValueError`
 - 若是 final session，会同步重写 `.md`
 
 ---

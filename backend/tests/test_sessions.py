@@ -235,11 +235,44 @@ def test_comments_add_and_delete_rewrite_markdown(tmp_path: Path) -> None:
     assert len(stored.comments) == 1
     comment_id = stored.comments[0]["id"]
 
-    delete_comment("session_4", comment_id)
+    delete_comment("session_4", comment_id, "usr_2")
     stored = get_session_by_id("session_4")
     assert stored is not None
     assert stored.comments == []
     assert "评论区" not in (md_dir / "session_4.md").read_text(encoding="utf-8")
+
+
+def test_delete_comment_rejects_non_author() -> None:
+    session = SessionRecord(
+        session_id="session_4b",
+        user_id="usr_1",
+        couple_id=None,
+        status="final",
+        visibility="private",
+        unlock_requested_at=None,
+        unlock_at=None,
+        shared_at=None,
+        upload_time="2026-05-01 10:00:00",
+        archive_time="2026-05-01 11:00:00",
+        is_complete=True,
+        source_type="file",
+        content_time="2026-05-01",
+        description="desc",
+        feeling="feel",
+    )
+    add_session(session)
+
+    add_comment("session_4b", "usr_2", "第一条评论")
+    stored = get_session_by_id("session_4b")
+    assert stored is not None
+    comment_id = stored.comments[0]["id"]
+
+    with pytest.raises(ValueError, match="cannot delete another user's comment"):
+        delete_comment("session_4b", comment_id, "usr_1")
+
+    stored = get_session_by_id("session_4b")
+    assert stored is not None
+    assert len(stored.comments) == 1
 
 
 def test_sharing_and_view_permissions() -> None:
