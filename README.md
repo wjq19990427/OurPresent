@@ -52,13 +52,14 @@ uv run pytest
 
 ## 文档导航
 
+- 文档总索引：[docs/README.md](./docs/README.md)
 - 产品需求文档：[docs/PRD.md](./docs/PRD.md)
 - 架构索引（L1）：[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- 战略方向与隐私底线：[docs/DIRECTION.md](./docs/DIRECTION.md)
+- 上线路线图：[docs/ROADMAP.md](./docs/ROADMAP.md)
 - 模块公开接口（L2 契约）：[docs/api/](./docs/api/)
-- 数据模型：[docs/data-model.md](./docs/data-model.md)
-- 状态机与分手协议：[docs/state-machines.md](./docs/state-machines.md)
-- 扩展指南：[docs/extension-guide.md](./docs/extension-guide.md)
-- 用户使用文档：[docs/user-guide.md](./docs/user-guide.md)
+- 扩展指南：[docs/notes/extension-guide.md](./docs/notes/extension-guide.md)
+- 用户使用文档：[docs/guide/user-guide.md](./docs/guide/user-guide.md)
 - 项目状态快照：[docs/STATUS.md](./docs/STATUS.md)
 - 版本记录：[CHANGELOG.md](./CHANGELOG.md)
 

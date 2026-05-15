@@ -3,7 +3,7 @@
 **类型**：refactor（健壮性）
 **Branch**：`codex/task-16`
 **前置任务**：无
-**根因诊断与修复方向**：见 `docs/phase2_audit.md` § B3
+**根因诊断与修复方向**：见 `docs/AUDIT.md` § B3
 
 ## 现象
 

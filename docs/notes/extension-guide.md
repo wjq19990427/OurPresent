@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
 - 设计稿：[`weekly_report.md`](./weekly_report.md)
 - L2 契约：[`api/app_reports.md`](./api/app_reports.md) / [`api/infra_ai.md`](./api/infra_ai.md)
-- Opus 复审与技术债：[`phase2_audit.md`](./phase2_audit.md)
+- Opus 复审与技术债：[`../AUDIT.md`](../AUDIT.md)
 
 ### 已实现的数据采样接口
 

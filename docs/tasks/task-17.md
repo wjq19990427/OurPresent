@@ -3,7 +3,7 @@
 **类型**：refactor（接口一致性）
 **Branch**：`codex/task-17`
 **前置任务**：无
-**根因诊断与修复方向**：见 `docs/phase2_audit.md` § B4
+**根因诊断与修复方向**：见 `docs/AUDIT.md` § B4
 
 ## 现象
 

@@ -3,7 +3,7 @@
 **类型**：bugfix（隐私边界 + guard 增强）
 **Branch**：`codex/task-18`
 **前置任务**：无
-**根因诊断与修复方向**：见 `docs/phase2_audit.md` § B5
+**根因诊断与修复方向**：见 `docs/AUDIT.md` § B5
 
 ## 现象
 

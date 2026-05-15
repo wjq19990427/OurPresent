@@ -293,9 +293,9 @@ DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 |------|--------|----------|
 | `README.md` | "AI 能力第二阶段预留，当前未正式接入"；当前能力列表缺周报 | 改为已接入；新增「情感周报」能力项 |
 | `docs/PRD.md` | §4 阶段表 Phase 2 仍标"规划中"；§3.2 仍说"满 90 天"；FR-20/21 描述未对齐落地版本 | Phase 2 改"周报已完成"；删除"90 天"硬编码；FR 描述补落地范围 |
-| `docs/state-machines.md` | `tick()` 解锁条件仍写 `upload_time ≥ 90 天`（task-4 起改 `unlock_at`） · 导出规则说"不含 AI 生成报告"但未注明是设计缺口 | 改 `unlock_at`；导出说明改为"暂不含周报，后续补齐" |
-| `docs/user-guide.md` | 整体停留在 task-6 前的 5 tab 结构与术语，全文未提周报 | 改写为 3 tab + 周报小节 |
-| `docs/extension-guide.md` | 周报相关章节仍以"预留接口"语气，未反映已落地 | 标注已落地，并指向 `weekly_report.md` |
+| `docs/api/app_maintenance.md` | `tick()` 解锁条件仍写 `upload_time ≥ 90 天`（task-4 起改 `unlock_at`） · 导出规则说"不含 AI 生成报告"但未注明是设计缺口 | 改 `unlock_at`；导出说明改为"暂不含周报，后续补齐" |
+| `docs/guide/user-guide.md` | 整体停留在 task-6 前的 5 tab 结构与术语，全文未提周报 | 改写为 3 tab + 周报小节 |
+| `docs/notes/extension-guide.md` | 周报相关章节仍以"预留接口"语气，未反映已落地 | 标注已落地，并指向 `weekly_report.md` |
 | `docs/ARCHITECTURE.md` | §4 关键不变量未列「情感周报隐私三层约束」 | 补一条 |
 | `docs/ARCHITECTURE.md` | L2 表中 `app_reports.md` 覆盖代码描述仅含 model + repo，未含 application 全套 | 改为 "Report 模型 + 仓储 + metrics / query / policies / semantic / guard / generate / scheduling" |
 

@@ -3,7 +3,7 @@
 **类型**：bugfix（产品体验）
 **Branch**：`codex/task-14`
 **前置任务**：无
-**根因诊断与修复方向**：见 `docs/phase2_audit.md` § A3
+**根因诊断与修复方向**：见 `docs/AUDIT.md` § A3
 
 ## 现象
 

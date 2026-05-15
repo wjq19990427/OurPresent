@@ -89,7 +89,7 @@ def previous_report_window_end(couple_id: str, db: dict) -> datetime | None
 
 - `docs/api/app_maintenance.md`（`tick()` 现有职责）
 - `docs/api/app_reports.md`（task-7/8/9 已落地的接口）
-- `docs/weekly_report.md` §5（触发与频率）
+- `docs/notes/weekly_report.md` §5（触发与频率）
 
 ## 文档同步
 

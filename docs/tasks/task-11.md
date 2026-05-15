@@ -96,7 +96,7 @@ task-9 已实现最新报告的实时渲染。本任务把 UI 周边能力补齐
 
 - `docs/api/frontend_streamlit.md`（「我们」/「设置」当前结构）
 - `docs/api/app_reports.md`（task-7~10 已落地的全部接口）
-- `docs/weekly_report.md` §5.1 / §7（服务开关 + UI 接入点）
+- `docs/notes/weekly_report.md` §5.1 / §7（服务开关 + UI 接入点）
 
 ## 文档同步
 

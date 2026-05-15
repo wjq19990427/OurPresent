@@ -164,7 +164,7 @@ def generate_weekly_report(
 - `docs/api/app_reports.md`（task-7/8 落地的 Report 与 metrics / query / policies）
 - `docs/api/infra_ai.md`（agent_skills 现有签名）
 - `docs/api/frontend_streamlit.md`（「我们」tab 当前结构）
-- `docs/weekly_report.md` §2 / §3 / §6 / §7（Pipeline 阶段、Report schema、隐私约束、UI 接入点）
+- `docs/notes/weekly_report.md` §2 / §3 / §6 / §7（Pipeline 阶段、Report schema、隐私约束、UI 接入点）
 
 ## 文档同步
 

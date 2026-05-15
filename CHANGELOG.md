@@ -26,7 +26,7 @@
 
 - **task-20**：`tools/synth/` 独立工具链上线 —— MiniMax-M2.5 驱动「角色卡 / 时间线 / 延时表达行为」三层合成，contextmanager 隔离 monkey-patch、`SYNTH_DB_PATH` + Assets 双重隔离、必经 application 层（含 `add_comment` 互动 / 销毁链路），剧本支持无 LLM 重复写库，自带 3 项 pytest（分布 / 二次写库等价 / 生产路径拒绝）
 
-### Phase 2 周报 B 级技术债清理（对应 `docs/phase2_audit.md` B3/B4/B5/B6）
+### Phase 2 周报 B 级技术债清理（对应 `docs/AUDIT.md` B3/B4/B5/B6）
 
 - **task-16（B3）**：`_load_dotenv_api_key` 改 walk-up 找 `pyproject.toml`，解除 `parents[3]` 硬编码；找不到项目根时静默跳过
 - **task-17（B4）**：`get_report_history(couple_id, include_failed=False)` 显式参数化，默认与 UI 渲染语义对齐过滤 `failed`，避免失败报告污染未来智能体上下文
@@ -38,7 +38,7 @@
 - **task-12a**：全量替换 Streamlit 已废弃的 `use_container_width` 参数（→ `width='stretch' / 'content'`），消除启动告警
 - **task-12b**：登录页迁移至单列移动端风格，视觉语言与认证后「我的 / 我们 / 设置」三个 tab 对齐
 
-### Phase 2 周报 A 级技术债清理（对应 `docs/phase2_audit.md` A2/A3/A4）
+### Phase 2 周报 A 级技术债清理（对应 `docs/AUDIT.md` A2/A3/A4）
 
 - **task-13（A2）**：`compute_footprint` 输入契约收紧，缺失或无法解析 `shared_at` 直接抛 `ValueError`，把隐私边界从跨模块约定升级为运行期断言
 - **task-14（A3）**：`extract_semantic(sessions, couple)` 接收 Couple 上下文；resonance 候选严格按 `Couple.user_a` / `Couple.user_b` 对位，不再依赖 user_id 字典序，消除「我们」tab 周报左右两侧作者错位
@@ -76,13 +76,13 @@
 
 **文档**
 
-- 新增 `docs/AI.md` 产品愿景（NVC 镜子定调）
-- 新增 `docs/weekly_report.md` 工程设计稿（Pipeline 七阶段 / 隐私三层约束 / 8 项决策闭环）
-- 新增 `docs/phase2_audit.md` Opus 复审技术债清单（13 项）
+- 新增 `docs/notes/AI.md` 产品愿景（NVC 镜子定调）
+- 新增 `docs/notes/weekly_report.md` 工程设计稿（Pipeline 七阶段 / 隐私三层约束 / 8 项决策闭环）
+- 新增 `docs/AUDIT.md` Opus 复审技术债清单（13 项）
 - 新增 `docs/api/app_reports.md` / 扩展 `docs/api/infra_ai.md`
 - 同步更新 README / PRD / ARCHITECTURE / state-machines / user-guide / extension-guide
 
-**已知技术债（已记入 `docs/phase2_audit.md`，不阻断本次发版）**
+**已知技术债（已记入 `docs/AUDIT.md`，不阻断本次发版）**
 
 - `tick()` → `generate_weekly_report` 嵌套 `load_db/save_db` 的非原子风险
 - `compute_footprint` 对缺失 `shared_at` 的静默放行

@@ -133,7 +133,7 @@ def partner_enabled_status(user_id: str) -> Literal["both", "only_self", "only_p
 - `docs/api/frontend_streamlit.md`（现有 tab 结构与 components 约定）
 - `docs/api/app_reports.md`（task-7 落地的 Report 模型与 repository）
 - `docs/api/domain_models.md`（task-7 新增字段）
-- `docs/weekly_report.md` §5.1 / §7（服务开关与 UI 状态分支）
+- `docs/notes/weekly_report.md` §5.1 / §7（服务开关与 UI 状态分支）
 
 ## 文档同步
 

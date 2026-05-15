@@ -3,7 +3,7 @@
 **类型**：bugfix（cosmetic / 数据卫生）
 **Branch**：`codex/task-19`
 **前置任务**：无
-**根因诊断与修复方向**：见 `docs/phase2_audit.md` § B6
+**根因诊断与修复方向**：见 `docs/AUDIT.md` § B6
 
 ## 现象
 

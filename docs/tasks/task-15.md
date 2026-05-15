@@ -3,7 +3,7 @@
 **类型**：bugfix（防御纵深）
 **Branch**：`codex/task-15`
 **前置任务**：无
-**根因诊断与修复方向**：见 `docs/phase2_audit.md` § A4
+**根因诊断与修复方向**：见 `docs/AUDIT.md` § A4
 
 ## 现象
 

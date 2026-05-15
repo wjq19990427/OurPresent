@@ -99,8 +99,8 @@ main.py
 ## 6. 阅读路径
 
 - **新人接手**：本文 → `docs/PRD.md` → 想改的模块对应 `docs/api/*.md`
-- **改字段或存储结构**：`docs/data-model.md` + `api/domain_models.md` + `api/infra_db.md`
-- **改时间锁或解绑逻辑**：`docs/state-machines.md` + `api/app_couple.md` + `api/app_maintenance.md`
-- **改情感周报**：`docs/weekly_report.md` + `api/app_reports.md` + `api/infra_ai.md` + `docs/phase2_audit.md`（已知技术债）
-- **接入新存储后端 / 后续 AI 模块**：`docs/extension-guide.md`
-- **首次使用产品**：`docs/user-guide.md`
+- **改字段或存储结构**：`docs/api/domain_models.md` + `docs/api/infra_db.md`
+- **改时间锁或解绑逻辑**：`docs/api/app_couple.md` + `docs/api/app_maintenance.md`
+- **改情感周报**：`docs/notes/weekly_report.md` + `api/app_reports.md` + `api/infra_ai.md` + `docs/AUDIT.md`（已知技术债）
+- **接入新存储后端 / 后续 AI 模块**：`docs/notes/extension-guide.md`
+- **首次使用产品**：`docs/guide/user-guide.md`
