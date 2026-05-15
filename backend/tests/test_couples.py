@@ -7,11 +7,15 @@ import pytest
 from backend.application.couples import (
     CoupleError,
     accept_bind,
+    confirm_cancel_uncouple,
     confirm_uncouple,
     is_frozen,
     reject_bind,
+    reject_cancel_uncouple,
+    request_cancel_uncouple,
     send_bind_request,
     start_uncouple,
+    withdraw_cancel_request,
 )
 from backend.domain.models import SessionRecord
 from backend.infrastructure.database.couples_repo import (
@@ -146,3 +150,72 @@ def test_confirm_uncouple_destroys_sessions_and_clears_users(tmp_path: Path) -> 
     assert get_user_by_id(bob_id).couple_id is None
     assert not attachment.exists()
     assert not markdown.exists()
+
+
+def test_request_confirm_cancel_uncouple_restores_active_status() -> None:
+    alice_id, bob_id, couple_id = _active_couple()
+    start_uncouple(alice_id)
+
+    request_cancel_uncouple(alice_id)
+    confirm_cancel_uncouple(bob_id)
+
+    couple = get_couple_by_id(couple_id)
+    assert couple is not None
+    assert couple.couple_status == "active"
+    assert couple.uncouple_initiated_by is None
+    assert couple.freeze_ends_at is None
+    assert couple.cancel_uncouple_requested_by is None
+
+
+def test_request_reject_cancel_uncouple_keeps_frozen_status() -> None:
+    alice_id, bob_id, couple_id = _active_couple()
+    start_uncouple(alice_id)
+
+    request_cancel_uncouple(alice_id)
+    reject_cancel_uncouple(bob_id)
+
+    couple = get_couple_by_id(couple_id)
+    assert couple is not None
+    assert couple.couple_status == "frozen"
+    assert couple.cancel_uncouple_requested_by is None
+    assert couple.freeze_ends_at is not None
+
+
+def test_withdraw_cancel_request_clears_pending_request() -> None:
+    alice_id, _, couple_id = _active_couple()
+    start_uncouple(alice_id)
+
+    request_cancel_uncouple(alice_id)
+    withdraw_cancel_request(alice_id)
+
+    couple = get_couple_by_id(couple_id)
+    assert couple is not None
+    assert couple.couple_status == "frozen"
+    assert couple.cancel_uncouple_requested_by is None
+    assert couple.cancel_uncouple_requested_at is None
+
+
+def test_cancel_uncouple_policy_errors() -> None:
+    alice_id, bob_id, _ = _active_couple()
+
+    with pytest.raises(CoupleError, match="当前不在冻结期"):
+        request_cancel_uncouple(alice_id)
+
+    start_uncouple(alice_id)
+    request_cancel_uncouple(alice_id)
+
+    with pytest.raises(CoupleError, match="已有待回应的撤回请求"):
+        request_cancel_uncouple(bob_id)
+    with pytest.raises(CoupleError, match="请等待对方回应"):
+        confirm_cancel_uncouple(alice_id)
+    with pytest.raises(CoupleError, match="请等待对方回应"):
+        reject_cancel_uncouple(alice_id)
+    with pytest.raises(CoupleError, match="只有发起请求的人可以撤回"):
+        withdraw_cancel_request(bob_id)
+
+    reject_cancel_uncouple(bob_id)
+
+    with pytest.raises(CoupleError, match="当前没有待回应的撤回请求"):
+        confirm_cancel_uncouple(bob_id)
+    with pytest.raises(CoupleError, match="当前没有可撤回的请求"):
+        withdraw_cancel_request(alice_id)

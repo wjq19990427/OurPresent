@@ -12,7 +12,14 @@ from typing import Optional
 
 import streamlit as st
 
-from backend.application.couples import is_frozen
+from backend.application.couples import (
+    CoupleError,
+    confirm_cancel_uncouple,
+    is_frozen,
+    reject_cancel_uncouple,
+    request_cancel_uncouple,
+    withdraw_cancel_request,
+)
 from backend.application.sessions import (
     add_comment,
     append_to_session,
@@ -160,6 +167,131 @@ def _time_until_unlock_text(session: SessionRecord) -> str:
     if hours > 0:
         return f"还要 {hours} 小时"
     return f"还要 {max(1, minutes)} 分钟"
+
+
+def _freeze_days_left(couple: Couple) -> int:
+    freeze_ends = parse_dt(couple.freeze_ends_at or "")
+    if not freeze_ends:
+        return 0
+    remaining = freeze_ends - datetime.now()
+    if remaining.total_seconds() <= 0:
+        return 0
+    return max(1, remaining.days + (1 if remaining.seconds else 0))
+
+
+def _set_frozen_notice(level: str, message: str) -> None:
+    st.session_state["frozen_notice"] = {"level": level, "message": message}
+
+
+def _render_frozen_notice() -> None:
+    notice = st.session_state.pop("frozen_notice", None)
+    if not notice:
+        return
+    getattr(st, notice["level"], st.info)(notice["message"])
+
+
+def _run_frozen_action(action: str) -> None:
+    try:
+        if action == "request":
+            request_cancel_uncouple(_uid())
+            _set_frozen_notice("success", "已把想回到正常状态的想法告诉对方，等对方回应。")
+        elif action == "confirm":
+            confirm_cancel_uncouple(_uid())
+            _set_frozen_notice("success", "你们已经回到正常状态，之前留下的内容都还在。")
+        elif action == "reject":
+            reject_cancel_uncouple(_uid())
+            _set_frozen_notice("info", "已保持冻结期不变；如果之后想再谈，还可以重新发起。")
+        elif action == "withdraw":
+            withdraw_cancel_request(_uid())
+            _set_frozen_notice("info", "已收回这次撤回请求，关系仍停在冻结期。")
+    except CoupleError as exc:
+        _set_frozen_notice("error", str(exc))
+    st.rerun()
+
+
+def render_frozen_status_banner(*, scope: str) -> None:
+    couple = _couple()
+    if not couple or couple.couple_status != "frozen":
+        return
+
+    pending_key = f"{scope}_pending_frozen_action"
+    initiated_by_me = couple.uncouple_initiated_by == _uid()
+    requested_by = couple.cancel_uncouple_requested_by
+    requested_by_me = requested_by == _uid()
+    days_left = _freeze_days_left(couple)
+    remaining_text = f"还有 {days_left} 天" if days_left else "快到期了"
+
+    _render_frozen_notice()
+
+    with st.container(border=True):
+        if initiated_by_me:
+            st.markdown(f"**你按下了冷静键。你们处于冻结期，{remaining_text}。**")
+        else:
+            st.markdown(f"**对方按下了冷静键。你们处于冻结期，{remaining_text}。**")
+        st.caption("这段时间里先停一停。新的记录和编辑会先暂停；到期后，数据会自动销毁。")
+
+        if not requested_by:
+            st.info("如果想回到正常状态，需要先把这个想法发给对方，等对方点头。")
+            if st.button("撤回冻结", key=f"{scope}_request_cancel_uncouple", width="stretch"):
+                st.session_state[pending_key] = "request"
+                st.rerun()
+        elif requested_by_me:
+            st.info("已发出撤回请求，正在等对方回应。")
+            if st.button("撤回我的请求", key=f"{scope}_withdraw_cancel_uncouple", width="stretch"):
+                st.session_state[pending_key] = "withdraw"
+                st.rerun()
+        else:
+            st.info("对方想撤回冻结期，回到正常状态。")
+            agree_col, reject_col = st.columns(2)
+            with agree_col:
+                if st.button("同意撤回", key=f"{scope}_confirm_cancel_uncouple", width="stretch"):
+                    st.session_state[pending_key] = "confirm"
+                    st.rerun()
+            with reject_col:
+                if st.button("拒绝撤回", key=f"{scope}_reject_cancel_uncouple", width="stretch"):
+                    st.session_state[pending_key] = "reject"
+                    st.rerun()
+
+        pending_action = st.session_state.get(pending_key)
+        prompts = {
+            "request": (
+                "把这个想法告诉对方后，关系仍会先停在冻结期，直到对方回应。",
+                "发出请求",
+            ),
+            "confirm": (
+                "同意后，你们会回到正常状态，之前留下的记录会继续保留。",
+                "同意撤回",
+            ),
+            "reject": (
+                "拒绝后，关系继续停在冻结期。这次请求会被清掉，之后仍可以重新讨论。",
+                "继续冻结",
+            ),
+            "withdraw": (
+                "这会收回你刚才发出的撤回请求，关系仍保持冻结。",
+                "撤回请求",
+            ),
+        }
+        if pending_action in prompts:
+            prompt_text, confirm_label = prompts[pending_action]
+            st.warning(prompt_text)
+            confirm_col, cancel_col = st.columns(2)
+            with confirm_col:
+                if st.button(
+                    confirm_label,
+                    key=f"{scope}_confirm_{pending_action}",
+                    width="stretch",
+                    type="primary",
+                ):
+                    st.session_state.pop(pending_key, None)
+                    _run_frozen_action(pending_action)
+            with cancel_col:
+                if st.button(
+                    "先等等",
+                    key=f"{scope}_cancel_{pending_action}",
+                    width="stretch",
+                ):
+                    st.session_state.pop(pending_key, None)
+                    st.rerun()
 
 
 def _is_recently_shared(session: SessionRecord) -> bool:

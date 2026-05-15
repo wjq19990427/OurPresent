@@ -35,6 +35,17 @@ def _partner_id() -> Optional[str]
 - 在 `active` 关系下返回伴侣 `user_id`
 - 未绑定或非激活状态返回 `None`
 
+```python
+def render_frozen_status_banner(*, scope: str) -> None
+```
+
+- 在当前用户处于 `frozen` 关系时渲染顶部 / 设置页共用 banner
+- 同时承载冻结期撤回协议的三态 UI：
+  - 无 pending 请求：展示「撤回冻结」入口，点击后二次确认并调用 `request_cancel_uncouple()`
+  - 当前用户是请求发起方：展示「已发出撤回请求」状态与「撤回我的请求」入口，点击后二次确认并调用 `withdraw_cancel_request()`
+  - 当前用户是请求接收方：展示「同意撤回 / 拒绝撤回」两个入口，点击后二次确认并分别调用 `confirm_cancel_uncouple()` / `reject_cancel_uncouple()`
+- banner 文案区分发起冻结的一方与接收方，但都显示剩余冻结天数与自动销毁说明
+
 #### 显示辅助
 
 ```python
@@ -247,6 +258,7 @@ def render_us_tab(db: dict) -> None
 ```
 
 - Tab 1「🏠 我们」，登录后默认落地页
+- 当关系处于 `frozen` 时，登录后的页面顶部会显示共用冻结期 banner
 - 未绑定伴侣时提示去「设置」绑定
 - pending bind 时提示绑定确认后出现共享记录
 - active / frozen 关系下，在 shared 时间线之上显示「📊 周报」区块
@@ -285,6 +297,7 @@ def render_mine_tab(db: dict) -> None
 ```
 
 - Tab 2「📝 我的」
+- 当关系处于 `frozen` 时，登录后的页面顶部会显示共用冻结期 banner
 - 顶部提供「✍️ 写新记录」入口
 - 当前用户没有任何记录时，入口默认展开并展示首条记录引导；已有记录后保持折叠
 - 写新记录入口支持上传文件或粘贴文字
@@ -303,6 +316,7 @@ def render_mine_tab(db: dict) -> None
   - 草稿：继续编辑字段、完成
   - 仅自己：编辑字段、申请共享
   - 等待开放中：追加内容、修改时间、立即解锁、撤回共享申请
+- `couple_status == "frozen"` 时不展示新建入口，详情区继续以 `read_only=True` 隐藏编辑、申请共享、撤回、追加、修改时间、立即解锁等写操作
 - 「我的」tab 不展示评论区；评论互动仅保留在「我们」tab
 - 「我的」tab 不展示详情区的 `📁 文件预览`；附件预览统一放在卡片外层
 
@@ -327,6 +341,9 @@ def render_settings_tab(db: dict) -> None
   - 当 `service_active_for_couple(couple_id)` 为 `True` 时显示频率选择，选项文案为 `7 天 / 每周`、`14 天 / 每两周`、`30 天 / 每月`，改动立即持久化到 `Couple.weekly_report_interval_days`
   - active / frozen 关系下展示「查看周报历史」入口，调用 `list_reports(couple_id)` 后由 `render_report_history()` 过滤 failed 并倒序展示
   - frozen 关系下展示冻结说明，开关只读，历史报告可读且不会生成新报告
+- active 关系下，「进入冻结期」与「双方同意立即销毁」都采用两步确认状态机；前者确认后调用 `start_uncouple()`，后者确认后调用 `confirm_uncouple()`
+- `confirm_uncouple()` 成功后不再停留在设置页，而是切到告别页短暂停留，再自动回到登录页
+- frozen 关系下，settings 内部也复用 `render_frozen_status_banner()`，让用户能在设置页看到撤回冻结的三态入口与结果反馈
 - 周报 UI 文案基调：
   - 保持温和、不评判、不指责任一方
   - 不使用「你应该」「你需要」「建议你」等祈使句
@@ -338,5 +355,5 @@ def render_settings_tab(db: dict) -> None
 |-----------------|----------|
 | 无关系 | 输入伴侣 ID 并发送绑定请求 |
 | `pending_bind` | 发送方显示等待提示，接收方显示接受/拒绝引导 |
-| `active` | 展示已绑定信息和解除绑定入口 |
-| `frozen` | 展示冻结提示和导出入口 |
+| `active` | 展示已绑定信息、二次确认后的「进入冻结期」与二次确认后的「双方同意立即销毁」入口 |
+| `frozen` | 展示冻结 banner、撤回冻结三态入口与导出入口 |

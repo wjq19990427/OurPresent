@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import zipfile
+from datetime import datetime, timedelta
 
 import streamlit as st
 
@@ -42,6 +43,77 @@ _REPORT_INTERVAL_LABELS = {
 }
 
 
+def _set_settings_notice(level: str, message: str) -> None:
+    st.session_state["settings_notice"] = {"level": level, "message": message}
+
+
+def _render_settings_notice() -> None:
+    notice = st.session_state.pop("settings_notice", None)
+    if not notice:
+        return
+    getattr(st, notice["level"], st.info)(notice["message"])
+
+
+def _start_farewell_transition() -> None:
+    token = st.query_params.get("token")
+    if token:
+        revoke_auth_token(token)
+        del st.query_params["token"]
+    st.session_state["farewell_state"] = {
+        "expires_at": (datetime.now() + timedelta(seconds=3)).isoformat(),
+    }
+    st.session_state["user"] = None
+
+
+def _run_active_uncouple_action(action: str, user_id: str) -> None:
+    try:
+        if action == "start":
+            start_uncouple(user_id)
+            _set_settings_notice(
+                "warning",
+                "已经进入冻结期。先把这段时间留给彼此，之后还可以再决定。",
+            )
+        elif action == "destroy":
+            confirm_uncouple(user_id)
+            _start_farewell_transition()
+    except CoupleError as exc:
+        _set_settings_notice("error", str(exc))
+    st.rerun()
+
+
+def _render_active_uncouple_confirm(user_id: str) -> None:
+    pending_action = st.session_state.get("settings_pending_uncouple_action")
+    prompts = {
+        "start": (
+            "这会让关系进入 90 天冻结期。新的记录和编辑会先暂停，到期后数据会自动销毁。",
+            "进入冻结期",
+        ),
+        "destroy": (
+            "销毁后，记录、评论和周报都会一起消失，之后无法恢复。",
+            "确认销毁",
+        ),
+    }
+    if pending_action not in prompts:
+        return
+
+    prompt_text, confirm_label = prompts[pending_action]
+    st.warning(prompt_text)
+    confirm_col, cancel_col = st.columns(2)
+    with confirm_col:
+        if st.button(
+            confirm_label,
+            key=f"settings_confirm_{pending_action}",
+            width="stretch",
+            type="primary",
+        ):
+            st.session_state.pop("settings_pending_uncouple_action", None)
+            _run_active_uncouple_action(pending_action, user_id)
+    with cancel_col:
+        if st.button("先等等", key=f"settings_cancel_{pending_action}", width="stretch"):
+            st.session_state.pop("settings_pending_uncouple_action", None)
+            st.rerun()
+
+
 def _render_report_history_entry(couple) -> None:
     if not couple or couple.couple_status not in ("active", "frozen"):
         return
@@ -74,7 +146,7 @@ def _render_weekly_report_section(user, couple) -> None:
         st.info("绑定确认后，两人都开启即可生效。")
         return
     if couple.couple_status == "frozen":
-        st.info("冻结期内不会生成新的周报；已经生成的历史仍可查看。")
+        st.info("这段时间不再生成新的周报；已经留下的历史仍可查看。")
         _render_report_history_entry(couple)
         return
 
@@ -108,6 +180,7 @@ def _render_weekly_report_section(user, couple) -> None:
 def render_settings_tab(db: dict) -> None:
     user = _current_user()
     couple = _couple()
+    _render_settings_notice()
 
     st.markdown("### 我的资料")
     col_a, col_b = st.columns(2)
@@ -189,38 +262,26 @@ def render_settings_tab(db: dict) -> None:
         st.caption(f"绑定时间：{couple.created_at}")
 
         with st.expander("⚠️ 解除绑定", expanded=False):
-            st.warning(
-                (
-                    "**单方发起**：进入 90 天冻结期。应用变为只读，"
-                    "冻结期满后**所有数据将被永久销毁**。\n\n"
-                    "**双方同意**：立即销毁全部数据，无法恢复。"
-                )
+            st.info(
+                "单方可以先把关系放进 90 天冻结期；如果两个人都已经想清楚，也可以直接销毁全部数据。"
             )
             col_single, col_mutual = st.columns(2)
             with col_single:
-                if st.button(
-                    "😔 进入冻结期", width="stretch", type="secondary"
-                ):
-                    start_uncouple(user.user_id)
-                    st.warning("已进入冻结期，90 天后数据将被销毁。")
+                if st.button("进入冻结期", width="stretch", type="secondary"):
+                    st.session_state["settings_pending_uncouple_action"] = "start"
                     st.rerun()
             with col_mutual:
-                if st.button(
-                    "💔 双方同意立即销毁", width="stretch", type="secondary"
-                ):
-                    confirm_uncouple(user.user_id)
-                    st.error("已销毁全部数据。")
-                    st.session_state["user"] = None
+                if st.button("双方同意立即销毁", width="stretch", type="secondary"):
+                    st.session_state["settings_pending_uncouple_action"] = "destroy"
                     st.rerun()
+            _render_active_uncouple_confirm(user.user_id)
 
     elif couple.couple_status == "frozen":
-        ends_at = couple.freeze_ends_at or ""
-        st.error(f"❄️ 关系处于冻结期，到期时间：**{ends_at}**，到期后数据将被自动销毁。")
-        st.info("冻结期内应用为只读状态，无法上传或编辑内容。")
+        st.info("撤回冻结、同意或拒绝回应，都可以直接在页面顶部的冻结提示里操作。")
 
         st.markdown("---")
         st.markdown("#### 📦 导出我的数据")
-        st.caption("冻结期内可导出属于自己的文件和文字记录，不包含对方数据。")
+        st.caption("如果想把自己的文件和文字留一份在手边，可以在这里导出；不包含对方的数据。")
         if st.button("生成导出包", width="stretch"):
             export_files = collect_export_files(user.user_id)
             if not export_files:

@@ -39,3 +39,35 @@ def ensure_can_start_uncouple(user_id: str) -> None:
 def ensure_can_confirm_uncouple(user_id: str) -> None:
     if not get_couple_for_user(user_id):
         raise CoupleError("当前没有绑定关系")
+
+
+def ensure_can_request_cancel_uncouple(user_id: str) -> None:
+    couple = get_couple_for_user(user_id)
+    if not couple or couple.couple_status != "frozen":
+        raise CoupleError("当前不在冻结期")
+    if couple.cancel_uncouple_requested_by:
+        raise CoupleError("已有待回应的撤回请求")
+
+
+def ensure_can_confirm_cancel_uncouple(user_id: str) -> None:
+    couple = get_couple_for_user(user_id)
+    if not couple or couple.couple_status != "frozen":
+        raise CoupleError("当前不在冻结期")
+    if not couple.cancel_uncouple_requested_by:
+        raise CoupleError("当前没有待回应的撤回请求")
+    if couple.cancel_uncouple_requested_by == user_id:
+        raise CoupleError("请等待对方回应这次撤回请求")
+
+
+def ensure_can_reject_cancel_uncouple(user_id: str) -> None:
+    ensure_can_confirm_cancel_uncouple(user_id)
+
+
+def ensure_can_withdraw_cancel_request(user_id: str) -> None:
+    couple = get_couple_for_user(user_id)
+    if not couple or couple.couple_status != "frozen":
+        raise CoupleError("当前不在冻结期")
+    if not couple.cancel_uncouple_requested_by:
+        raise CoupleError("当前没有可撤回的请求")
+    if couple.cancel_uncouple_requested_by != user_id:
+        raise CoupleError("只有发起请求的人可以撤回")

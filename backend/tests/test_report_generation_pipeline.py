@@ -344,6 +344,8 @@ def test_semantic_passes_only_allowed_fields_to_llm(monkeypatch: pytest.MonkeyPa
         uncouple_initiated_at=None,
         both_agreed_uncouple=False,
         freeze_ends_at=None,
+        cancel_uncouple_requested_by=None,
+        cancel_uncouple_requested_at=None,
     )
 
     weather, resonance = semantic_module.extract_semantic([session], couple)
@@ -372,6 +374,8 @@ def test_semantic_ignores_invalid_content_time_fallback(
         uncouple_initiated_at=None,
         both_agreed_uncouple=False,
         freeze_ends_at=None,
+        cancel_uncouple_requested_by=None,
+        cancel_uncouple_requested_at=None,
     )
     sessions = [
         _session(

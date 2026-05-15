@@ -18,6 +18,8 @@ def test_domain_models_round_trip() -> None:
         None,
         False,
         None,
+        None,
+        None,
     )
     session = SessionRecord(
         session_id="sess_1",
@@ -59,6 +61,14 @@ def test_domain_models_round_trip() -> None:
     assert User.from_dict({**user.to_dict(), "weekly_report_enabled": 1}).weekly_report_enabled
     migrated_couple = Couple.from_dict({**couple.to_dict(), "weekly_report_interval_days": 14})
     assert migrated_couple.weekly_report_interval_days == 14
+    requested = Couple.from_dict(
+        {
+            **couple.to_dict(),
+            "cancel_uncouple_requested_by": "usr_1",
+            "cancel_uncouple_requested_at": "2026-05-02 10:00:00",
+        }
+    )
+    assert requested.cancel_uncouple_requested_by == "usr_1"
 
 
 def test_load_db_returns_empty_when_missing() -> None:
@@ -166,6 +176,7 @@ def test_old_sqlite_schema_migrates_new_report_fields() -> None:
     assert loaded["reports"] == []
     assert loaded["users"][0]["weekly_report_enabled"] is False
     assert loaded["couples"][0]["weekly_report_interval_days"] == 7
+    assert loaded["couples"][0]["cancel_uncouple_requested_by"] is None
 
     db_module.save_db(loaded)
     assert db_module.load_db() == loaded

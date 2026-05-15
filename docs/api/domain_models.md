@@ -33,6 +33,8 @@ class Couple:
     uncouple_initiated_at: str | None
     both_agreed_uncouple: bool
     freeze_ends_at: str | None
+    cancel_uncouple_requested_by: str | None
+    cancel_uncouple_requested_at: str | None
     weekly_report_interval_days: int
 ```
 
@@ -43,6 +45,7 @@ class Couple:
   - `active`
   - `frozen`
   - `dissolved`
+- `cancel_uncouple_requested_by` / `cancel_uncouple_requested_at` 表示冻结期内“撤回冻结”请求的发起者与发起时间；为空表示当前没有待回应请求
 - `weekly_report_interval_days` 是双方共享的情感周报间隔天数，默认 `7`
 
 #### `backend/domain/models/report.py`

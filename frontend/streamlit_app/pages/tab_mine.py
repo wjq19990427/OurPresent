@@ -49,7 +49,7 @@ def _validation_record(
 
 def _render_new_record_entry(*, has_sessions: bool) -> None:
     if _is_frozen():
-        st.warning("⚠️ 当前处于冻结期，应用为只读状态，无法写新记录。")
+        st.info("这段时间先不写新记录。等关系回到正常状态后，这里会重新打开。")
         return
 
     if not has_sessions:

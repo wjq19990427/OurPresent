@@ -100,6 +100,8 @@ def test_load_db_with_tick_persists_frozen_couple_cleanup(tmp_path) -> None:
                     "uncouple_initiated_at": "2026-05-01 10:00:00",
                     "both_agreed_uncouple": False,
                     "freeze_ends_at": expired,
+                    "cancel_uncouple_requested_by": None,
+                    "cancel_uncouple_requested_at": None,
                 }
             ],
             "sessions": [

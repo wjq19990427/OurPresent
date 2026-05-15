@@ -5,6 +5,8 @@ OurPresent — 入口文件
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import streamlit as st
 
 from backend.application.auth import (
@@ -19,7 +21,11 @@ from backend.application.maintenance import load_db_with_tick
 from backend.infrastructure.database.couples_repo import get_couple_for_user
 from backend.infrastructure.database.db import ensure_dirs
 from backend.infrastructure.database.users_repo import get_user_by_id
-from frontend.streamlit_app.components import _current_user, _partner_id
+from frontend.streamlit_app.components import (
+    _current_user,
+    _partner_id,
+    render_frozen_status_banner,
+)
 from frontend.streamlit_app.pages.tab_mine import render_mine_tab
 from frontend.streamlit_app.pages.tab_settings import render_settings_tab
 from frontend.streamlit_app.pages.tab_us import render_us_tab
@@ -44,6 +50,7 @@ def _init_state() -> None:
         "us_selected": None,
         "mine_selected": None,
         "auth_tab": "login",
+        "farewell_state": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -64,6 +71,23 @@ def _init_state() -> None:
 # 登录 / 注册页
 # ─────────────────────────────────────────────────────────────────────────────
 def render_auth_page() -> None:
+    farewell = st.session_state.get("farewell_state")
+    if farewell:
+        expires_at = farewell.get("expires_at", "")
+        if expires_at and datetime.now() >= datetime.fromisoformat(expires_at):
+            st.session_state["farewell_state"] = None
+        else:
+            st.title("💑 OurPresent")
+            with st.container(border=True):
+                st.markdown("### 这一段共同留下的内容，已经平静地放下了。")
+                st.write("数据已经不可恢复。愿你们都慢慢回到自己的生活节奏。")
+                st.caption("页面会在几秒后回到登录。")
+            st.markdown(
+                "<meta http-equiv='refresh' content='3'>",
+                unsafe_allow_html=True,
+            )
+            return
+
     st.title("💑 OurPresent")
     st.caption("情侣专属的情感记录空间")
     st.divider()
@@ -142,7 +166,7 @@ def main() -> None:
             st.caption(f"👤 {user.username}")
 
     if is_frozen(user.user_id):
-        st.warning("❄️ 关系处于冻结期，当前为只读状态。")
+        render_frozen_status_banner(scope="global_top")
 
     tab_us, tab_mine, tab_settings = st.tabs(
         [

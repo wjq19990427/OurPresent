@@ -46,6 +46,8 @@ def _couple(
         uncouple_initiated_at=None,
         both_agreed_uncouple=False,
         freeze_ends_at=None,
+        cancel_uncouple_requested_by=None,
+        cancel_uncouple_requested_at=None,
         weekly_report_interval_days=interval_days,
     )
 

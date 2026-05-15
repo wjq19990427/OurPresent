@@ -20,6 +20,8 @@ def create_couple_request(from_user_id: str, to_user_id: str) -> Couple:
         uncouple_initiated_at=None,
         both_agreed_uncouple=False,
         freeze_ends_at=None,
+        cancel_uncouple_requested_by=None,
+        cancel_uncouple_requested_at=None,
     )
     db["couples"].append(couple.to_dict())
     save_db(db)

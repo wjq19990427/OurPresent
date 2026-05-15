@@ -44,7 +44,7 @@ def _render_weekly_report_panel(couple) -> None:
 
     with st.expander("📊 周报", expanded=False):
         if couple.couple_status == "frozen":
-            st.info("冻结期内不会生成新的周报，已经生成的历史仍可查看。")
+            st.info("这段时间不再生成新的周报，已经留下的历史仍可以慢慢看。")
             latest_visible = next(
                 (report for report in reports if report.status != "failed"),
                 None,

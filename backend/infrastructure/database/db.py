@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS couples (
     uncouple_initiated_at TEXT,
     both_agreed_uncouple INTEGER NOT NULL DEFAULT 0,
     freeze_ends_at TEXT,
+    cancel_uncouple_requested_by TEXT,
+    cancel_uncouple_requested_at TEXT,
     weekly_report_interval_days INTEGER NOT NULL DEFAULT 7
 );
 
@@ -162,6 +164,8 @@ def _migrate_db() -> None:
             "weekly_report_interval_days",
             "INTEGER NOT NULL DEFAULT 7",
         )
+        _ensure_column(conn, "couples", "cancel_uncouple_requested_by", "TEXT")
+        _ensure_column(conn, "couples", "cancel_uncouple_requested_at", "TEXT")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS reports (
@@ -241,6 +245,8 @@ def load_db() -> dict:
                 "uncouple_initiated_at": row["uncouple_initiated_at"],
                 "both_agreed_uncouple": bool(row["both_agreed_uncouple"]),
                 "freeze_ends_at": row["freeze_ends_at"],
+                "cancel_uncouple_requested_by": row["cancel_uncouple_requested_by"],
+                "cancel_uncouple_requested_at": row["cancel_uncouple_requested_at"],
                 "weekly_report_interval_days": row["weekly_report_interval_days"],
             }
             for row in conn.execute("SELECT * FROM couples ORDER BY created_at, couple_id")
@@ -315,9 +321,10 @@ def _write_db(normalized: dict) -> None:
             INSERT INTO couples (
                 couple_id, user_a, user_b, created_at, couple_status,
                 uncouple_initiated_by, uncouple_initiated_at, both_agreed_uncouple,
-                freeze_ends_at, weekly_report_interval_days
+                freeze_ends_at, cancel_uncouple_requested_by,
+                cancel_uncouple_requested_at, weekly_report_interval_days
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -330,6 +337,8 @@ def _write_db(normalized: dict) -> None:
                     couple.get("uncouple_initiated_at"),
                     int(bool(couple.get("both_agreed_uncouple", False))),
                     couple.get("freeze_ends_at"),
+                    couple.get("cancel_uncouple_requested_by"),
+                    couple.get("cancel_uncouple_requested_at"),
                     int(couple.get("weekly_report_interval_days", 7)),
                 )
                 for couple in normalized["couples"]
