@@ -21,6 +21,7 @@
 - 任务卡统一写入 `docs/tasks/task-{N}.md`（或 `task-{N}{字母}.md` 用于子任务），文件名与任务编号严格对应
 - **任务卡写好后先 commit 一次再派发给实现工**，message 形如 `docs: task-N 任务卡入库`。这一步保证实现工的 worktree 基线包含任务卡本身，避免 rebase 时遇到"任务卡在我这边、不在他那边"的混乱
 - commit 后在对话中告知实现工文件路径
+- **本地启动服务必须指定非默认端口**：任务卡里只要涉及让实现工启动 `streamlit run` / `uvicorn` / `flask run` / `npm run dev` 等本地服务，必须明确写"指定非默认端口"（如 `--server.port 8765`），默认端口大概率已被架构师本机占用
 
 ## 工作树管理
 
