@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import streamlit as st
 
 from backend.application.reports import (
@@ -11,6 +13,7 @@ from backend.application.reports import (
     service_active_for_couple,
 )
 from backend.application.sessions import can_view_session
+from backend.infrastructure.database.db import parse_dt
 from backend.infrastructure.database.sessions_repo import list_sessions_for_couple
 from backend.infrastructure.database.users_repo import get_user_by_id
 from frontend.streamlit_app.components import (
@@ -76,6 +79,45 @@ def _render_weekly_report_panel(couple) -> None:
             _settings_hint_button("weekly_neither_settings")
 
 
+def _pending_unlock_notice_text(unlock_at: str | None) -> str:
+    unlock_dt = parse_dt(unlock_at or "")
+    if not unlock_dt:
+        return "开放时间待定"
+    remaining = unlock_dt - datetime.now()
+    if remaining.total_seconds() <= 0:
+        return "即将开放"
+    days = remaining.days
+    hours = remaining.seconds // 3600
+    minutes = (remaining.seconds % 3600) // 60
+    if days > 0:
+        return f"还要 {days + (1 if remaining.seconds else 0)} 天 · {unlock_at}"
+    if hours > 0:
+        return f"还要 {hours} 小时 · {unlock_at}"
+    return f"还要 {max(1, minutes)} 分钟 · {unlock_at}"
+
+
+def _render_pending_unlock_preview(sessions) -> None:
+    pending_sessions = sorted(
+        [
+            session
+            for session in sessions
+            if session.visibility == "pending_unlock" and session.user_id != _uid()
+        ],
+        key=lambda session: session.unlock_at or "",
+    )
+    if not pending_sessions:
+        return
+
+    with st.container(border=True):
+        st.markdown("#### 有记录正在路上")
+        if len(pending_sessions) == 1:
+            st.caption("有一份记录会在约定的时间向你开放。")
+        else:
+            st.caption(f"有 {len(pending_sessions)} 份记录会在约定的时间向你开放。")
+        for index, session in enumerate(pending_sessions, start=1):
+            st.write(f"{index}. {_pending_unlock_notice_text(session.unlock_at)}")
+
+
 def render_us_tab(db: dict) -> None:
     couple = _couple()
     if not couple:
@@ -88,10 +130,13 @@ def render_us_tab(db: dict) -> None:
     _render_weekly_report_panel(couple)
     st.divider()
 
+    couple_sessions = list_sessions_for_couple(couple.couple_id)
+    _render_pending_unlock_preview(couple_sessions)
+
     sessions = sorted(
         [
             session
-            for session in list_sessions_for_couple(couple.couple_id)
+            for session in couple_sessions
             if session.visibility == "shared" and can_view_session(session, _uid())
         ],
         key=lambda session: session.shared_at or "",
@@ -99,7 +144,7 @@ def render_us_tab(db: dict) -> None:
     )
 
     if not sessions:
-        st.info("还没有共享的记录，去「我的」写一条吧。")
+        st.info("还没有已开放的记录，去「我的」写一条吧。")
         return
 
     selected_id = st.session_state.get("us_selected")
@@ -113,18 +158,22 @@ def render_us_tab(db: dict) -> None:
             session,
             "us_selected",
             author_name=_username(session.user_id),
+            author_relation="我的记录" if is_mine else "对方的记录",
+            show_completion=False,
+            show_recently_shared=True,
+            button_label="查看",
         )
 
-    if selected_id:
-        session = next((item for item in sessions if item.session_id == selected_id), None)
-        if session:
-            st.divider()
-            st.markdown(f"### {_username(session.user_id)} 的记录 — {selected_id}")
-            render_detail(
-                session,
-                mode="final",
-                read_only=True,
-                selected_state_key="us_selected",
-            )
-        else:
-            st.session_state["us_selected"] = None
+        if selected_id == session.session_id:
+            with target_col:
+                st.markdown(f"### {_username(session.user_id)} 的记录")
+                render_detail(
+                    session,
+                    mode="final",
+                    read_only=True,
+                    selected_state_key="us_selected",
+                    show_comments=True,
+                )
+
+    if selected_id and not any(item.session_id == selected_id for item in sessions):
+        st.session_state["us_selected"] = None

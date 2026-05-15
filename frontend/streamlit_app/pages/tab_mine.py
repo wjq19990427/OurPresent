@@ -47,12 +47,16 @@ def _validation_record(
     return session
 
 
-def _render_new_record_entry() -> None:
+def _render_new_record_entry(*, has_sessions: bool) -> None:
     if _is_frozen():
         st.warning("⚠️ 当前处于冻结期，应用为只读状态，无法写新记录。")
         return
 
-    with st.expander("✍️ 写新记录", expanded=False):
+    if not has_sessions:
+        st.markdown("### 写下第一条记录")
+        st.caption("先留下这一刻。等它完成后，再决定什么时候让对方看见。")
+
+    with st.expander("✍️ 写新记录", expanded=not has_sessions):
         couple = _couple()
         couple_id = couple.couple_id if couple and couple.couple_status == "active" else None
 
@@ -144,14 +148,15 @@ def _render_new_record_entry() -> None:
 
 
 def render_mine_tab(db: dict) -> None:
-    _render_new_record_entry()
-    st.divider()
-
     sessions = sorted(
         list_sessions_for_user(_uid()),
         key=lambda session: session.upload_time,
         reverse=True,
     )
+
+    _render_new_record_entry(has_sessions=bool(sessions))
+    st.divider()
+
     if not sessions:
         st.info("还没有记录。")
         return

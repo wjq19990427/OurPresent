@@ -55,6 +55,8 @@ _APPENDABLE_TEXT_FIELDS = tuple(
     field["key"] for field in FIELD_SCHEMA if field.get("type") == "textarea"
 )
 
+_UPLOAD_FIELD_ORDER = ("description", "feeling", "reason", "content_time")
+
 
 def _current_user() -> Optional[User]:
     return st.session_state.get("user")
@@ -112,6 +114,31 @@ def _days_until_unlock(session: SessionRecord) -> int:
     return max(0, remaining.days + (1 if remaining.seconds else 0))
 
 
+def _time_until_unlock_text(session: SessionRecord) -> str:
+    unlock_dt = parse_dt(session.unlock_at or "")
+    if not unlock_dt:
+        return "开放时间待定"
+    remaining = unlock_dt - datetime.now()
+    if remaining.total_seconds() <= 0:
+        return "即将开放"
+    days = remaining.days
+    hours = remaining.seconds // 3600
+    minutes = (remaining.seconds % 3600) // 60
+    if days > 0:
+        return f"还要 {days + (1 if remaining.seconds else 0)} 天"
+    if hours > 0:
+        return f"还要 {hours} 小时"
+    return f"还要 {max(1, minutes)} 分钟"
+
+
+def _is_recently_shared(session: SessionRecord) -> bool:
+    shared_dt = parse_dt(session.shared_at or "")
+    if not shared_dt:
+        return False
+    elapsed = datetime.now() - shared_dt
+    return timedelta(0) <= elapsed < timedelta(hours=24)
+
+
 def _unlock_at_for_choice(
     choice: str,
     custom_date: date | None = None,
@@ -136,9 +163,8 @@ def _visibility_badge(session: SessionRecord) -> str:
         return "🔒 私密"
     if visibility == "pending_unlock":
         if not session.unlock_at:
-            return "⏳ 待解锁（未设置时间）"
-        days = _days_until_unlock(session)
-        return f"⏳ 待解锁（还需 {days} 天）"
+            return "等待开放（未设置时间）"
+        return f"等待开放（{_time_until_unlock_text(session)}）"
     return "✅ 已共享"
 
 
@@ -148,9 +174,17 @@ def _status_badge(session: SessionRecord) -> str:
     if session.visibility == "private":
         return "[仅自己]"
     if session.visibility == "pending_unlock":
-        days = _days_until_unlock(session)
-        return f"[倒计时·还有 {days} 天]"
+        return f"[等待开放 · {_time_until_unlock_text(session)}]"
     return "[已分享]"
+
+
+def _fields_for_prefix(prefix: str) -> list[dict]:
+    if prefix != "upload":
+        return FIELD_SCHEMA
+    by_key = {field["key"]: field for field in FIELD_SCHEMA}
+    ordered = [by_key[key] for key in _UPLOAD_FIELD_ORDER if key in by_key]
+    ordered.extend(field for field in FIELD_SCHEMA if field["key"] not in _UPLOAD_FIELD_ORDER)
+    return ordered
 
 
 def _report_status_badge(report: Report) -> str:
@@ -272,7 +306,7 @@ def render_field_inputs(
 ) -> dict:
     skip_keys = skip_keys or set()
     result = {}
-    for field in FIELD_SCHEMA:
+    for field in _fields_for_prefix(prefix):
         key = field["key"]
         if key in skip_keys:
             result[key] = getattr(defaults, key, "") if defaults else ""
@@ -357,10 +391,22 @@ def render_card(
     session: SessionRecord,
     state_key: str,
     author_name: str | None = None,
+    *,
+    author_relation: str | None = None,
+    show_completion: bool = True,
+    show_recently_shared: bool = False,
+    button_label: str | None = None,
 ) -> None:
     with col:
         if author_name:
-            st.caption(f"作者：{author_name}")
+            label = (
+                f"{author_relation} · {author_name}"
+                if author_relation
+                else f"作者：{author_name}"
+            )
+            st.caption(label)
+        if show_recently_shared and _is_recently_shared(session):
+            st.success("新近解锁", icon=None)
         thumb, label = _session_thumb(session)
         if thumb:
             st.image(pil_to_png_bytes(thumb), width="stretch")
@@ -372,13 +418,14 @@ def render_card(
         st.caption(f"📎 {n_files}  💬 {n_comments}  ·  {session.upload_time[:10]}")
         st.caption(_status_badge(session))
 
-        missing = validate_session(session)
-        if missing:
-            st.warning(f"⚠ 待补充：{', '.join(missing)}", icon=None)
-        else:
-            st.success("✅ 信息完整", icon=None)
+        if show_completion:
+            missing = validate_session(session)
+            if missing:
+                st.warning(f"⚠ 待补充：{', '.join(missing)}", icon=None)
+            else:
+                st.success("✅ 信息完整", icon=None)
 
-        button_label = "查看/编辑" if session.user_id == _uid() else "查看"
+        button_label = button_label or ("查看/编辑" if session.user_id == _uid() else "查看")
         if st.button(
             button_label, key=f"sel_{state_key}_{session.session_id}", width="stretch"
         ):
@@ -392,6 +439,7 @@ def render_detail(
     read_only: bool = False,
     *,
     selected_state_key: str,
+    show_comments: bool | None = None,
 ) -> None:
     is_mine = session.user_id == _uid()
     is_text = is_text_session(session)
@@ -426,10 +474,11 @@ def render_detail(
         st.markdown("---")
         st.markdown(f"**隐私状态**：{_visibility_badge(session)}")
         if visibility == "private":
+            st.caption("默认先等一个月，让这份记录保留一点时间的重量；也可以改成立即或更久。")
             unlock_choice = st.selectbox(
                 "对方何时可见",
                 _UNLOCK_PRESETS,
-                index=_UNLOCK_PRESETS.index("1 周后"),
+                index=_UNLOCK_PRESETS.index("1 个月后"),
                 key=f"unlock_choice_{session.session_id}",
             )
             custom_unlock_date = None
@@ -481,7 +530,7 @@ def render_detail(
                 new_unlock_choice = st.selectbox(
                     "新的开放时间",
                     _UNLOCK_PRESETS,
-                    index=_UNLOCK_PRESETS.index("1 周后"),
+                    index=_UNLOCK_PRESETS.index("1 个月后"),
                     key=f"reschedule_choice_{session.session_id}",
                 )
                 new_custom_unlock_date = None
@@ -579,4 +628,9 @@ def render_detail(
             if saved:
                 st.rerun()
 
-    render_comments(session)
+    if show_comments is None:
+        show_comments = session.visibility != "pending_unlock" and (
+            session.visibility == "shared" or is_mine
+        )
+    if show_comments:
+        render_comments(session)

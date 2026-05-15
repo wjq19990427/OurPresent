@@ -55,6 +55,23 @@ def _days_until_unlock(session: SessionRecord) -> int
 - 基于 `unlock_at` 计算距离开放还剩几天
 
 ```python
+def _time_until_unlock_text(session: SessionRecord) -> str
+```
+
+- 基于 `unlock_at` 返回克制的等待文案：
+  - 已到时间：`即将开放`
+  - 天级：`还要 N 天`
+  - 小时级：`还要 N 小时`
+  - 分钟级：`还要 N 分钟`
+  - 缺少时间：`开放时间待定`
+
+```python
+def _is_recently_shared(session: SessionRecord) -> bool
+```
+
+- 基于 `shared_at` 判断记录是否在 24 小时内解锁
+
+```python
 def _unlock_at_for_choice(
     choice: str,
     custom_date: date | None = None,
@@ -72,7 +89,7 @@ def _visibility_badge(session: SessionRecord) -> str
 
 - 返回详情区可见性标签：
   - `🔒 私密`
-  - `⏳ 待解锁（还需 N 天）`
+  - `等待开放（还要 N 天/小时/分钟）`
   - `✅ 已共享`
 
 ```python
@@ -82,7 +99,7 @@ def _status_badge(session: SessionRecord) -> str
 - 返回卡片状态标签：
   - `status == "pending"`：`[草稿]`
   - `status == "final" and visibility == "private"`：`[仅自己]`
-  - `status == "final" and visibility == "pending_unlock"`：`[倒计时·还有 N 天]`
+  - `status == "final" and visibility == "pending_unlock"`：`[等待开放 · 还要 N 天/小时/分钟]`
   - `status == "final" and visibility == "shared"`：`[已分享]`
 
 ```python
@@ -104,6 +121,8 @@ def render_field_inputs(
 - 遍历 `FIELD_SCHEMA` 生成输入控件
 - 通常在 `st.form()` 中调用
 - 返回值是字段值字典
+- `prefix == "upload"` 时按首次填写旅程排序：`description → feeling → reason → content_time`
+- 其他前缀保持 `FIELD_SCHEMA` 原顺序，用于编辑态稳定回填
 
 参数说明：
 
@@ -131,11 +150,20 @@ def render_card(
     session: SessionRecord,
     state_key: str,
     author_name: str | None = None,
+    *,
+    author_relation: str | None = None,
+    show_completion: bool = True,
+    show_recently_shared: bool = False,
+    button_label: str | None = None,
 ) -> None
 ```
 
 - 在指定列容器中渲染 session 卡片
 - 展示可选作者徽章、缩略图、文件数、评论数、状态徽章、完整度
+- `author_relation` 用于在「我们」tab 明确展示 `我的记录` / `对方的记录`，保证手机宽度下仍能一眼区分归属
+- `show_completion=False` 时隐藏“信息完整 / 待补充”提示，用于阅读态时间线
+- `show_recently_shared=True` 时，对 `shared_at` 距当前时间 24 小时内的记录显示 `新近解锁`
+- `button_label` 用于阅读态覆盖按钮文案；「我的」tab 默认仍按作者显示 `查看/编辑`
 - 点击按钮后把 `session_id` 写入 `st.session_state[state_key]`
 
 #### Session 详情区
@@ -147,6 +175,7 @@ def render_detail(
     read_only: bool = False,
     *,
     selected_state_key: str,
+    show_comments: bool | None = None,
 ) -> None
 ```
 
@@ -159,13 +188,14 @@ def render_detail(
 | `mode` | `"pending"` 或 `"final"` |
 | `read_only` | 冻结期或查看共享记录时为 `True` |
 | `selected_state_key` | 取消或归档后需要清空的选中状态 key（关键字参数，必填） |
+| `show_comments` | `None` 时按 visibility 自动判断；显式传入时覆盖评论区展示 |
 
 行为说明：
 
 - `read_only=False` 时可编辑字段
 - `mode="pending"` 时支持“完成”
 - 自己的记录可申请共享或撤回共享
-- 申请共享时默认选中“1 周后”，可选择“立即”、预设天数或日历自定义日期；最终调用 `request_unlock(session_id, unlock_at)`
+- 申请共享时默认选中“1 个月后”，并提示默认等待一个月的产品理由；仍可选择“立即”、预设天数或日历自定义日期；最终调用 `request_unlock(session_id, unlock_at)`
 - 自己的 `visibility == "pending_unlock"` 记录在详情区暴露四个动作：
   - 追加内容：可向 `description` / `feeling` / `reason` 追加文本，调用 `append_to_session()`
   - 修改开放时间：可选择新的预设或自定义日期，勾选确认后调用 `reschedule_unlock()`
@@ -174,7 +204,11 @@ def render_detail(
 - “修改开放时间”和“立即解锁”必须通过确认勾选，明确提示会改变伴侣看见记录的时间
 - `visibility == "private"` 或 `"shared"` 的记录不展示 pending 解锁调整动作
 - 纯文字记录的 `description` 不可手动修改
-- `read_only=True` 时不展示字段编辑、共享申请、撤回、追加、修改时间、立即解锁等自身记录操作，但评论区仍可互动
+- `read_only=True` 时不展示字段编辑、共享申请、撤回、追加、修改时间、立即解锁等自身记录操作
+- 评论区默认可见规则：
+  - `visibility == "private"`：仅作者本人可见可写
+  - `visibility == "pending_unlock"`：完全隐藏
+  - `visibility == "shared"`：双方可见可写
 
 #### 情感周报渲染
 
@@ -221,6 +255,8 @@ def render_us_tab(db: dict) -> None
   - 冻结期：显示冻结说明，不展示手动生成入口；已生成的 ready/sparse 历史仍可读
 - 双方都开启服务且关系 active 时显示临时测试按钮「🧪 立即生成周报（测试）」并调用 `generate_weekly_report(couple_id)`；该入口将在 cron 稳定后删除
 - 读取当前 couple 下所有 `visibility == "shared"` 的 `SessionRecord`
+- 同时读取伴侣的 `visibility == "pending_unlock"` 记录并在共享时间线上方展示预告区块
+- 预告区块只展示“有记录正在路上”和开放时间，不展示作者写了什么、文件类型、描述、感受、原因或 session 内容字段
 - 过滤条件：
   - `session.couple_id == couple.couple_id`
   - `session.visibility == "shared"`
@@ -229,8 +265,12 @@ def render_us_tab(db: dict) -> None
 - 视觉规则：
   - 当前用户自己的记录靠右
   - 伴侣的记录靠左
-  - 卡片顶部展示作者用户名
+  - 卡片顶部展示 `我的记录 / 对方的记录` 与作者用户名，移动端分栏折叠时仍保留归属信号
+  - 共享时间线隐藏“信息完整 / 待补充”写作者元信息
+  - `shared_at` 距当前时间 24 小时内的记录显示 `新近解锁`
+  - 卡片按钮统一显示 `查看`
 - 详情区只读展示字段和文件，保留评论互动
+- 详情区与评论区紧邻所属 session 卡片内嵌展示，不再渲染在整条 timeline 末尾
 - 不展示编辑字段、申请共享、撤回、追加、修改时间、立即解锁等自身记录操作
 
 ```python
@@ -239,6 +279,7 @@ def render_mine_tab(db: dict) -> None
 
 - Tab 2「📝 我的」
 - 顶部提供「✍️ 写新记录」入口
+- 当前用户没有任何记录时，入口默认展开并展示首条记录引导；已有记录后保持折叠
 - 写新记录入口支持上传文件或粘贴文字
 - 可选择“完成”或“存为草稿”
 - 创建记录时调用：
@@ -251,7 +292,7 @@ def render_mine_tab(db: dict) -> None
 - 详情区承载当前用户自己的所有记录操作：
   - 草稿：继续编辑字段、完成
   - 仅自己 / 已分享：编辑字段、申请共享 / 撤回
-  - 倒计时中：追加内容、修改时间、立即解锁、撤回共享申请
+  - 等待开放中：追加内容、修改时间、立即解锁、撤回共享申请
 
 ```python
 def render_settings_tab(db: dict) -> None
