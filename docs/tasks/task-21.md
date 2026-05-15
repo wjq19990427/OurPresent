@@ -1,5 +1,7 @@
 # Task 21: PostgreSQL 迁移 · Docker Compose · 保留整库语义
 
+> **冻结 2026-05-13**：项目战略转向商业化 + 端到端加密（详见 `docs/product-direction.md`）。本任务卡的核心前提"整库明文 load_db/save_db 不变、application 零感知"与 E2EE 下"服务端只持有密文 + 元数据索引"的最终形态不兼容。在 E2EE 架构决策出来之前，本卡不要开工；届时大概率要重写而非沿用。
+
 **类型**：infra（数据库介质迁移）
 **Branch**：`codex/task-21`
 **前置任务**：task-20（合成剧本作为跨 DB 一致性验收基线）
