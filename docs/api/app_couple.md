@@ -68,6 +68,39 @@ def ensure_can_withdraw_cancel_request(user_id: str) -> None
 - 要求存在待回应请求
 - 调用者必须是请求发起方
 
+```python
+def ensure_can_request_destroy_uncouple(user_id: str) -> None
+```
+
+- 发起“现在分手”申请前的校验
+- 要求当前必须处于 `frozen`
+- 若已有待回应的撤回冻结请求或现在分手申请则抛 `CoupleError`
+
+```python
+def ensure_can_confirm_destroy_uncouple(user_id: str) -> None
+```
+
+- 同意“现在分手”申请前的校验
+- 要求当前必须处于 `frozen`
+- 要求存在待回应的现在分手申请
+- 调用者必须是申请接收方
+
+```python
+def ensure_can_reject_destroy_uncouple(user_id: str) -> None
+```
+
+- 拒绝“现在分手”申请前的校验
+- 规则与 `ensure_can_confirm_destroy_uncouple()` 一致
+
+```python
+def ensure_can_withdraw_destroy_request(user_id: str) -> None
+```
+
+- 发起方撤回自己的“现在分手”申请前的校验
+- 要求当前必须处于 `frozen`
+- 要求存在待回应申请
+- 调用者必须是申请发起方
+
 ---
 
 ### `backend/application/couples/binding.py` — 绑定流程
@@ -142,6 +175,8 @@ def confirm_cancel_uncouple(user_id: str) -> None
   - `freeze_ends_at`
   - `cancel_uncouple_requested_by`
   - `cancel_uncouple_requested_at`
+  - `destroy_uncouple_requested_by`
+  - `destroy_uncouple_requested_at`
 
 ```python
 def reject_cancel_uncouple(user_id: str) -> None
@@ -158,6 +193,40 @@ def withdraw_cancel_request(user_id: str) -> None
 - 由请求发起方主动收回自己的撤回请求
 - 先执行 `ensure_can_withdraw_cancel_request()`
 - 仅清空撤回请求字段，关系仍保持 `frozen`
+
+```python
+def request_destroy_uncouple(user_id: str) -> None
+```
+
+- 冻结期内任一方都可发起“现在分手”申请
+- 先执行 `ensure_can_request_destroy_uncouple()`
+- 成功后写入：
+  - `destroy_uncouple_requested_by`
+  - `destroy_uncouple_requested_at`
+
+```python
+def confirm_destroy_uncouple(user_id: str) -> None
+```
+
+- 由申请接收方同意“现在分手”
+- 先执行 `ensure_can_confirm_destroy_uncouple()`
+- 校验通过后调用 `confirm_uncouple()`，立即销毁 sessions、reports 并解绑双方用户
+
+```python
+def reject_destroy_uncouple(user_id: str) -> None
+```
+
+- 由申请接收方拒绝“现在分手”
+- 先执行 `ensure_can_reject_destroy_uncouple()`
+- 仅清空现在分手申请字段，关系仍保持 `frozen`
+
+```python
+def withdraw_destroy_request(user_id: str) -> None
+```
+
+- 由申请发起方主动收回自己的“现在分手”申请
+- 先执行 `ensure_can_withdraw_destroy_request()`
+- 仅清空现在分手申请字段，关系仍保持 `frozen`
 
 ```python
 def is_frozen(user_id: str) -> bool

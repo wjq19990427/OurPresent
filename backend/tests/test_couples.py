@@ -8,14 +8,18 @@ from backend.application.couples import (
     CoupleError,
     accept_bind,
     confirm_cancel_uncouple,
+    confirm_destroy_uncouple,
     confirm_uncouple,
     is_frozen,
     reject_bind,
     reject_cancel_uncouple,
+    reject_destroy_uncouple,
     request_cancel_uncouple,
+    request_destroy_uncouple,
     send_bind_request,
     start_uncouple,
     withdraw_cancel_request,
+    withdraw_destroy_request,
 )
 from backend.domain.models import SessionRecord
 from backend.infrastructure.database.couples_repo import (
@@ -165,6 +169,7 @@ def test_request_confirm_cancel_uncouple_restores_active_status() -> None:
     assert couple.uncouple_initiated_by is None
     assert couple.freeze_ends_at is None
     assert couple.cancel_uncouple_requested_by is None
+    assert couple.destroy_uncouple_requested_by is None
 
 
 def test_request_reject_cancel_uncouple_keeps_frozen_status() -> None:
@@ -219,3 +224,109 @@ def test_cancel_uncouple_policy_errors() -> None:
         confirm_cancel_uncouple(bob_id)
     with pytest.raises(CoupleError, match="当前没有可撤回的请求"):
         withdraw_cancel_request(alice_id)
+
+
+def test_request_confirm_destroy_uncouple_destroys_data(tmp_path: Path) -> None:
+    alice_id, bob_id, couple_id = _active_couple()
+    start_uncouple(alice_id)
+    attachment = tmp_path / "Assets" / "Final" / "sess_2_000_photo.jpg"
+    attachment.write_bytes(b"img")
+    add_session(
+        SessionRecord(
+            session_id="sess_2",
+            user_id=alice_id,
+            couple_id=couple_id,
+            status="final",
+            visibility="shared",
+            unlock_requested_at=None,
+            unlock_at=None,
+            shared_at="2026-05-01 12:00:00",
+            upload_time="2026-05-01 10:00:00",
+            archive_time="2026-05-01 11:00:00",
+            is_complete=True,
+            files=[
+                {
+                    "filename": attachment.name,
+                    "original_name": "photo.jpg",
+                    "path": str(attachment),
+                }
+            ],
+        )
+    )
+
+    request_destroy_uncouple(alice_id)
+    confirm_destroy_uncouple(bob_id)
+
+    assert get_couple_for_user(alice_id) is None
+    dissolved = get_couple_by_id(couple_id)
+    assert dissolved is not None
+    assert dissolved.couple_status == "dissolved"
+    assert not attachment.exists()
+
+
+def test_request_reject_destroy_uncouple_keeps_frozen_status() -> None:
+    alice_id, bob_id, couple_id = _active_couple()
+    start_uncouple(alice_id)
+
+    request_destroy_uncouple(alice_id)
+    reject_destroy_uncouple(bob_id)
+
+    couple = get_couple_by_id(couple_id)
+    assert couple is not None
+    assert couple.couple_status == "frozen"
+    assert couple.destroy_uncouple_requested_by is None
+    assert couple.freeze_ends_at is not None
+
+
+def test_withdraw_destroy_request_clears_pending_request() -> None:
+    alice_id, _, couple_id = _active_couple()
+    start_uncouple(alice_id)
+
+    request_destroy_uncouple(alice_id)
+    withdraw_destroy_request(alice_id)
+
+    couple = get_couple_by_id(couple_id)
+    assert couple is not None
+    assert couple.couple_status == "frozen"
+    assert couple.destroy_uncouple_requested_by is None
+    assert couple.destroy_uncouple_requested_at is None
+
+
+def test_destroy_uncouple_policy_errors() -> None:
+    alice_id, bob_id, _ = _active_couple()
+
+    with pytest.raises(CoupleError, match="当前不在冻结期"):
+        request_destroy_uncouple(alice_id)
+
+    start_uncouple(alice_id)
+    request_destroy_uncouple(alice_id)
+
+    with pytest.raises(CoupleError, match="已有待回应的现在分手申请"):
+        request_destroy_uncouple(bob_id)
+    with pytest.raises(CoupleError, match="请等待对方回应"):
+        confirm_destroy_uncouple(alice_id)
+    with pytest.raises(CoupleError, match="请等待对方回应"):
+        reject_destroy_uncouple(alice_id)
+    with pytest.raises(CoupleError, match="只有发起申请的人可以撤回"):
+        withdraw_destroy_request(bob_id)
+
+    reject_destroy_uncouple(bob_id)
+
+    with pytest.raises(CoupleError, match="当前没有待回应的现在分手申请"):
+        confirm_destroy_uncouple(bob_id)
+    with pytest.raises(CoupleError, match="当前没有可撤回的现在分手申请"):
+        withdraw_destroy_request(alice_id)
+
+
+def test_destroy_and_cancel_requests_cannot_overlap() -> None:
+    alice_id, bob_id, _ = _active_couple()
+    start_uncouple(alice_id)
+
+    request_cancel_uncouple(alice_id)
+    with pytest.raises(CoupleError, match="已有待回应的撤回请求"):
+        request_destroy_uncouple(bob_id)
+
+    withdraw_cancel_request(alice_id)
+    request_destroy_uncouple(alice_id)
+    with pytest.raises(CoupleError, match="已有待回应的现在分手申请"):
+        request_cancel_uncouple(bob_id)

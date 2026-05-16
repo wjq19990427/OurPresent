@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS couples (
     freeze_ends_at TEXT,
     cancel_uncouple_requested_by TEXT,
     cancel_uncouple_requested_at TEXT,
+    destroy_uncouple_requested_by TEXT,
+    destroy_uncouple_requested_at TEXT,
     weekly_report_interval_days INTEGER NOT NULL DEFAULT 7
 );
 
@@ -166,6 +168,8 @@ def _migrate_db() -> None:
         )
         _ensure_column(conn, "couples", "cancel_uncouple_requested_by", "TEXT")
         _ensure_column(conn, "couples", "cancel_uncouple_requested_at", "TEXT")
+        _ensure_column(conn, "couples", "destroy_uncouple_requested_by", "TEXT")
+        _ensure_column(conn, "couples", "destroy_uncouple_requested_at", "TEXT")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS reports (
@@ -247,6 +251,8 @@ def load_db() -> dict:
                 "freeze_ends_at": row["freeze_ends_at"],
                 "cancel_uncouple_requested_by": row["cancel_uncouple_requested_by"],
                 "cancel_uncouple_requested_at": row["cancel_uncouple_requested_at"],
+                "destroy_uncouple_requested_by": row["destroy_uncouple_requested_by"],
+                "destroy_uncouple_requested_at": row["destroy_uncouple_requested_at"],
                 "weekly_report_interval_days": row["weekly_report_interval_days"],
             }
             for row in conn.execute("SELECT * FROM couples ORDER BY created_at, couple_id")
@@ -322,9 +328,10 @@ def _write_db(normalized: dict) -> None:
                 couple_id, user_a, user_b, created_at, couple_status,
                 uncouple_initiated_by, uncouple_initiated_at, both_agreed_uncouple,
                 freeze_ends_at, cancel_uncouple_requested_by,
-                cancel_uncouple_requested_at, weekly_report_interval_days
+                cancel_uncouple_requested_at, destroy_uncouple_requested_by,
+                destroy_uncouple_requested_at, weekly_report_interval_days
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -339,6 +346,8 @@ def _write_db(normalized: dict) -> None:
                     couple.get("freeze_ends_at"),
                     couple.get("cancel_uncouple_requested_by"),
                     couple.get("cancel_uncouple_requested_at"),
+                    couple.get("destroy_uncouple_requested_by"),
+                    couple.get("destroy_uncouple_requested_at"),
                     int(couple.get("weekly_report_interval_days", 7)),
                 )
                 for couple in normalized["couples"]

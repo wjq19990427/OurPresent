@@ -18,6 +18,8 @@ class Couple:
     freeze_ends_at: str | None
     cancel_uncouple_requested_by: str | None = None
     cancel_uncouple_requested_at: str | None = None
+    destroy_uncouple_requested_by: str | None = None
+    destroy_uncouple_requested_at: str | None = None
     weekly_report_interval_days: int = 7
 
     @classmethod
@@ -34,6 +36,8 @@ class Couple:
             freeze_ends_at=data.get("freeze_ends_at"),
             cancel_uncouple_requested_by=data.get("cancel_uncouple_requested_by"),
             cancel_uncouple_requested_at=data.get("cancel_uncouple_requested_at"),
+            destroy_uncouple_requested_by=data.get("destroy_uncouple_requested_by"),
+            destroy_uncouple_requested_at=data.get("destroy_uncouple_requested_at"),
             weekly_report_interval_days=int(data.get("weekly_report_interval_days", 7)),
         )
 

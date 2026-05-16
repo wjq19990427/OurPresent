@@ -66,9 +66,12 @@ def test_domain_models_round_trip() -> None:
             **couple.to_dict(),
             "cancel_uncouple_requested_by": "usr_1",
             "cancel_uncouple_requested_at": "2026-05-02 10:00:00",
+            "destroy_uncouple_requested_by": "usr_2",
+            "destroy_uncouple_requested_at": "2026-05-03 10:00:00",
         }
     )
     assert requested.cancel_uncouple_requested_by == "usr_1"
+    assert requested.destroy_uncouple_requested_by == "usr_2"
 
 
 def test_load_db_returns_empty_when_missing() -> None:
@@ -177,6 +180,7 @@ def test_old_sqlite_schema_migrates_new_report_fields() -> None:
     assert loaded["users"][0]["weekly_report_enabled"] is False
     assert loaded["couples"][0]["weekly_report_interval_days"] == 7
     assert loaded["couples"][0]["cancel_uncouple_requested_by"] is None
+    assert loaded["couples"][0]["destroy_uncouple_requested_by"] is None
 
     db_module.save_db(loaded)
     assert db_module.load_db() == loaded

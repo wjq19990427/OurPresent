@@ -5,8 +5,6 @@ OurPresent — 入口文件
 
 from __future__ import annotations
 
-from datetime import datetime
-
 import streamlit as st
 
 from backend.application.auth import (
@@ -18,7 +16,7 @@ from backend.application.auth import (
 )
 from backend.application.couples import is_frozen
 from backend.application.maintenance import load_db_with_tick
-from backend.infrastructure.database.couples_repo import get_couple_for_user
+from backend.infrastructure.database.couples_repo import get_couple_by_id, get_couple_for_user
 from backend.infrastructure.database.db import ensure_dirs
 from backend.infrastructure.database.users_repo import get_user_by_id
 from frontend.streamlit_app.components import (
@@ -26,6 +24,7 @@ from frontend.streamlit_app.components import (
     _partner_id,
     render_frozen_status_banner,
 )
+from frontend.streamlit_app.pages.farewell import render_farewell_page
 from frontend.streamlit_app.pages.tab_mine import render_mine_tab
 from frontend.streamlit_app.pages.tab_settings import render_settings_tab
 from frontend.streamlit_app.pages.tab_us import render_us_tab
@@ -38,6 +37,8 @@ st.set_page_config(
     page_icon="💑",
     layout="wide",
 )
+
+_FAREWELL_QUERY_KEY = "farewell"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -56,6 +57,10 @@ def _init_state() -> None:
         if k not in st.session_state:
             st.session_state[k] = v
 
+    farewell_reason = st.query_params.get(_FAREWELL_QUERY_KEY)
+    if farewell_reason:
+        st.session_state["farewell_state"] = {"reason": farewell_reason}
+
     # 刷新页面时通过 URL token 自动恢复登录
     if st.session_state["user"] is None:
         token = st.query_params.get("token")
@@ -71,23 +76,6 @@ def _init_state() -> None:
 # 登录 / 注册页
 # ─────────────────────────────────────────────────────────────────────────────
 def render_auth_page() -> None:
-    farewell = st.session_state.get("farewell_state")
-    if farewell:
-        expires_at = farewell.get("expires_at", "")
-        if expires_at and datetime.now() >= datetime.fromisoformat(expires_at):
-            st.session_state["farewell_state"] = None
-        else:
-            st.title("💑 OurPresent")
-            with st.container(border=True):
-                st.markdown("### 这一段共同留下的内容，已经平静地放下了。")
-                st.write("数据已经不可恢复。愿你们都慢慢回到自己的生活节奏。")
-                st.caption("页面会在几秒后回到登录。")
-            st.markdown(
-                "<meta http-equiv='refresh' content='3'>",
-                unsafe_allow_html=True,
-            )
-            return
-
     st.title("💑 OurPresent")
     st.caption("情侣专属的情感记录空间")
     st.divider()
@@ -137,6 +125,9 @@ def render_auth_page() -> None:
 """)
 
 
+def _open_farewell_page(reason: str) -> None:
+    st.session_state["farewell_state"] = {"reason": reason}
+    st.query_params[_FAREWELL_QUERY_KEY] = reason
 # ─────────────────────────────────────────────────────────────────────────────
 # 主函数
 # ─────────────────────────────────────────────────────────────────────────────
@@ -146,11 +137,31 @@ def main() -> None:
 
     user = _current_user()
 
-    if not user:
+    if not user and not st.session_state.get("farewell_state"):
         render_auth_page()
         return
 
+    previous_couple_id = user.couple_id if user else None
     db = load_db_with_tick()
+
+    if user:
+        refreshed_user = get_user_by_id(user.user_id)
+        if refreshed_user:
+            st.session_state["user"] = refreshed_user
+            user = refreshed_user
+        if not st.session_state.get("farewell_state") and previous_couple_id and user:
+            dissolved = get_couple_by_id(previous_couple_id)
+            if user.couple_id is None and dissolved and dissolved.couple_status == "dissolved":
+                reason = "destroy_now" if dissolved.both_agreed_uncouple else "freeze_expired"
+                _open_farewell_page(reason)
+
+    if st.session_state.get("farewell_state"):
+        render_farewell_page()
+        return
+
+    if not user:
+        render_auth_page()
+        return
 
     col_title, col_user = st.columns([5, 1])
     with col_title:

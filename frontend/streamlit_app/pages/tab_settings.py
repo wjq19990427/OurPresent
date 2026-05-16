@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import zipfile
-from datetime import datetime, timedelta
 
 import streamlit as st
 
@@ -12,7 +11,6 @@ from backend.application.auth import revoke_auth_token
 from backend.application.couples import (
     CoupleError,
     accept_bind,
-    confirm_uncouple,
     reject_bind,
     send_bind_request,
     start_uncouple,
@@ -54,17 +52,6 @@ def _render_settings_notice() -> None:
     getattr(st, notice["level"], st.info)(notice["message"])
 
 
-def _start_farewell_transition() -> None:
-    token = st.query_params.get("token")
-    if token:
-        revoke_auth_token(token)
-        del st.query_params["token"]
-    st.session_state["farewell_state"] = {
-        "expires_at": (datetime.now() + timedelta(seconds=3)).isoformat(),
-    }
-    st.session_state["user"] = None
-
-
 def _run_active_uncouple_action(action: str, user_id: str) -> None:
     try:
         if action == "start":
@@ -73,9 +60,6 @@ def _run_active_uncouple_action(action: str, user_id: str) -> None:
                 "warning",
                 "已经进入冻结期。先把这段时间留给彼此，之后还可以再决定。",
             )
-        elif action == "destroy":
-            confirm_uncouple(user_id)
-            _start_farewell_transition()
     except CoupleError as exc:
         _set_settings_notice("error", str(exc))
     st.rerun()
@@ -83,33 +67,22 @@ def _run_active_uncouple_action(action: str, user_id: str) -> None:
 
 def _render_active_uncouple_confirm(user_id: str) -> None:
     pending_action = st.session_state.get("settings_pending_uncouple_action")
-    prompts = {
-        "start": (
-            "这会让关系进入 90 天冻结期。新的记录和编辑会先暂停，到期后数据会自动销毁。",
-            "进入冻结期",
-        ),
-        "destroy": (
-            "销毁后，记录、评论和周报都会一起消失，之后无法恢复。",
-            "确认销毁",
-        ),
-    }
-    if pending_action not in prompts:
+    if pending_action != "start":
         return
 
-    prompt_text, confirm_label = prompts[pending_action]
-    st.warning(prompt_text)
+    st.warning("这会让关系进入 90 天冻结期。新的记录和编辑会先暂停，到期后数据会自动销毁。")
     confirm_col, cancel_col = st.columns(2)
     with confirm_col:
         if st.button(
-            confirm_label,
-            key=f"settings_confirm_{pending_action}",
+            "进入冻结期",
+            key="settings_confirm_start",
             width="stretch",
             type="primary",
         ):
             st.session_state.pop("settings_pending_uncouple_action", None)
-            _run_active_uncouple_action(pending_action, user_id)
+            _run_active_uncouple_action("start", user_id)
     with cancel_col:
-        if st.button("先等等", key=f"settings_cancel_{pending_action}", width="stretch"):
+        if st.button("先等等", key="settings_cancel_start", width="stretch"):
             st.session_state.pop("settings_pending_uncouple_action", None)
             st.rerun()
 
@@ -272,22 +245,14 @@ def render_settings_tab(db: dict) -> None:
         st.caption(f"绑定时间：{couple.created_at}")
 
         with st.expander("⚠️ 解除绑定", expanded=False):
-            st.info(
-                "单方可以先把关系放进 90 天冻结期；如果两个人都已经想清楚，也可以直接销毁全部数据。"
-            )
-            col_single, col_mutual = st.columns(2)
-            with col_single:
-                if st.button("进入冻结期", width="stretch", type="secondary"):
-                    st.session_state["settings_pending_uncouple_action"] = "start"
-                    st.rerun()
-            with col_mutual:
-                if st.button("双方同意立即销毁", width="stretch", type="secondary"):
-                    st.session_state["settings_pending_uncouple_action"] = "destroy"
-                    st.rerun()
+            st.info("如果想停下来冷静一段时间，可以先进入 90 天冻结期。")
+            if st.button("进入冻结期", width="stretch", type="secondary"):
+                st.session_state["settings_pending_uncouple_action"] = "start"
+                st.rerun()
             _render_active_uncouple_confirm(user.user_id)
 
     elif couple.couple_status == "frozen":
-        st.info("撤回冻结、同意或拒绝回应，都可以直接在页面顶部的冻结提示里操作。")
+        st.info("撤回冻结、申请现在分手，或回应对方的请求，都可以直接在页面顶部的冻结提示里操作。")
 
         st.markdown("---")
         st.markdown("#### 📦 导出我的数据")

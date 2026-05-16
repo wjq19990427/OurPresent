@@ -15,10 +15,14 @@ import streamlit as st
 from backend.application.couples import (
     CoupleError,
     confirm_cancel_uncouple,
+    confirm_destroy_uncouple,
     is_frozen,
     reject_cancel_uncouple,
+    reject_destroy_uncouple,
     request_cancel_uncouple,
+    request_destroy_uncouple,
     withdraw_cancel_request,
+    withdraw_destroy_request,
 )
 from backend.application.sessions import (
     add_comment,
@@ -192,19 +196,36 @@ def _render_frozen_notice() -> None:
 
 
 def _run_frozen_action(action: str) -> None:
+    user_id = _uid()
     try:
         if action == "request":
-            request_cancel_uncouple(_uid())
+            request_cancel_uncouple(user_id)
             _set_frozen_notice("success", "已把想回到正常状态的想法告诉对方，等对方回应。")
         elif action == "confirm":
-            confirm_cancel_uncouple(_uid())
+            confirm_cancel_uncouple(user_id)
             _set_frozen_notice("success", "你们已经回到正常状态，之前留下的内容都还在。")
         elif action == "reject":
-            reject_cancel_uncouple(_uid())
+            reject_cancel_uncouple(user_id)
             _set_frozen_notice("info", "已保持冻结期不变；如果之后想再谈，还可以重新发起。")
         elif action == "withdraw":
-            withdraw_cancel_request(_uid())
+            withdraw_cancel_request(user_id)
             _set_frozen_notice("info", "已收回这次撤回请求，关系仍停在冻结期。")
+        elif action == "request_destroy":
+            request_destroy_uncouple(user_id)
+            _set_frozen_notice(
+                "warning",
+                "已发出现在分手申请。只有对方点头后，数据才会被永久销毁。",
+            )
+        elif action == "confirm_destroy":
+            confirm_destroy_uncouple(user_id)
+            st.session_state["user"] = get_user_by_id(user_id)
+            st.session_state["farewell_state"] = {"reason": "destroy_now"}
+        elif action == "reject_destroy":
+            reject_destroy_uncouple(user_id)
+            _set_frozen_notice("info", "已先不走现在分手这一步，关系仍停在冻结期。")
+        elif action == "withdraw_destroy":
+            withdraw_destroy_request(user_id)
+            _set_frozen_notice("info", "已收回这次现在分手申请，关系仍停在冻结期。")
     except CoupleError as exc:
         _set_frozen_notice("error", str(exc))
     st.rerun()
@@ -217,8 +238,10 @@ def render_frozen_status_banner(*, scope: str) -> None:
 
     pending_key = f"{scope}_pending_frozen_action"
     initiated_by_me = couple.uncouple_initiated_by == _uid()
-    requested_by = couple.cancel_uncouple_requested_by
-    requested_by_me = requested_by == _uid()
+    cancel_requested_by = couple.cancel_uncouple_requested_by
+    cancel_requested_by_me = cancel_requested_by == _uid()
+    destroy_requested_by = couple.destroy_uncouple_requested_by
+    destroy_requested_by_me = destroy_requested_by == _uid()
     days_left = _freeze_days_left(couple)
     remaining_text = f"还有 {days_left} 天" if days_left else "快到期了"
 
@@ -231,26 +254,74 @@ def render_frozen_status_banner(*, scope: str) -> None:
             st.markdown(f"**对方按下了冷静键。你们处于冻结期，{remaining_text}。**")
         st.caption("这段时间里先停一停。新的记录和编辑会先暂停；到期后，数据会自动销毁。")
 
-        if not requested_by:
-            st.info("如果想回到正常状态，需要先把这个想法发给对方，等对方点头。")
-            if st.button("撤回冻结", key=f"{scope}_request_cancel_uncouple", width="stretch"):
-                st.session_state[pending_key] = "request"
-                st.rerun()
-        elif requested_by_me:
-            st.info("已发出撤回请求，正在等对方回应。")
-            if st.button("撤回我的请求", key=f"{scope}_withdraw_cancel_uncouple", width="stretch"):
-                st.session_state[pending_key] = "withdraw"
-                st.rerun()
-        else:
-            st.info("对方想撤回冻结期，回到正常状态。")
-            agree_col, reject_col = st.columns(2)
-            with agree_col:
-                if st.button("同意撤回", key=f"{scope}_confirm_cancel_uncouple", width="stretch"):
-                    st.session_state[pending_key] = "confirm"
+        if cancel_requested_by:
+            if cancel_requested_by_me:
+                st.info("已发出撤回冻结请求，正在等对方回应。")
+                if st.button(
+                    "撤回我的请求",
+                    key=f"{scope}_withdraw_cancel_uncouple",
+                    width="stretch",
+                ):
+                    st.session_state[pending_key] = "withdraw"
                     st.rerun()
-            with reject_col:
-                if st.button("拒绝撤回", key=f"{scope}_reject_cancel_uncouple", width="stretch"):
-                    st.session_state[pending_key] = "reject"
+            else:
+                st.info("对方想撤回冻结期，回到正常状态。")
+                agree_col, reject_col = st.columns(2)
+                with agree_col:
+                    if st.button(
+                        "同意撤回",
+                        key=f"{scope}_confirm_cancel_uncouple",
+                        width="stretch",
+                    ):
+                        st.session_state[pending_key] = "confirm"
+                        st.rerun()
+                with reject_col:
+                    if st.button(
+                        "拒绝撤回",
+                        key=f"{scope}_reject_cancel_uncouple",
+                        width="stretch",
+                    ):
+                        st.session_state[pending_key] = "reject"
+                        st.rerun()
+        elif destroy_requested_by:
+            if destroy_requested_by_me:
+                st.warning("已发出现在分手申请。只有对方同意后，数据才会被永久销毁。")
+                if st.button(
+                    "撤回我的现在分手申请",
+                    key=f"{scope}_withdraw_destroy_uncouple",
+                    width="stretch",
+                ):
+                    st.session_state[pending_key] = "withdraw_destroy"
+                    st.rerun()
+            else:
+                st.warning("对方想现在分手。如果你同意，记录、评论和周报都会一起永久消失。")
+                agree_col, reject_col = st.columns(2)
+                with agree_col:
+                    if st.button(
+                        "同意现在分手",
+                        key=f"{scope}_confirm_destroy_uncouple",
+                        width="stretch",
+                    ):
+                        st.session_state[pending_key] = "confirm_destroy"
+                        st.rerun()
+                with reject_col:
+                    if st.button(
+                        "拒绝现在分手",
+                        key=f"{scope}_reject_destroy_uncouple",
+                        width="stretch",
+                    ):
+                        st.session_state[pending_key] = "reject_destroy"
+                        st.rerun()
+        else:
+            st.info("如果想回到正常状态，或想现在就结束这段关系，都需要先把想法发给对方。")
+            request_col, destroy_col = st.columns(2)
+            with request_col:
+                if st.button("撤回冻结", key=f"{scope}_request_cancel_uncouple", width="stretch"):
+                    st.session_state[pending_key] = "request"
+                    st.rerun()
+            with destroy_col:
+                if st.button("现在分手", key=f"{scope}_request_destroy_uncouple", width="stretch"):
+                    st.session_state[pending_key] = "request_destroy"
                     st.rerun()
 
         pending_action = st.session_state.get(pending_key)
@@ -270,6 +341,22 @@ def render_frozen_status_banner(*, scope: str) -> None:
             "withdraw": (
                 "这会收回你刚才发出的撤回请求，关系仍保持冻结。",
                 "撤回请求",
+            ),
+            "request_destroy": (
+                "发出现在分手申请后，关系仍先保持冻结。只有对方同意，数据才会被永久销毁。",
+                "发出申请",
+            ),
+            "confirm_destroy": (
+                "同意后，记录、评论和周报都会一起永久销毁，之后无法恢复。",
+                "确认永久销毁",
+            ),
+            "reject_destroy": (
+                "拒绝后，这次现在分手申请会被清掉，关系继续停在冻结期。",
+                "继续冻结",
+            ),
+            "withdraw_destroy": (
+                "这会收回你刚才发出的现在分手申请，关系仍保持冻结。",
+                "撤回申请",
             ),
         }
         if pending_action in prompts:

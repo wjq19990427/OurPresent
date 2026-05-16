@@ -40,10 +40,15 @@ def render_frozen_status_banner(*, scope: str) -> None
 ```
 
 - 在当前用户处于 `frozen` 关系时渲染顶部 / 设置页共用 banner
-- 同时承载冻结期撤回协议的三态 UI：
+- 同时承载冻结期内两类协议 UI：
   - 无 pending 请求：展示「撤回冻结」入口，点击后二次确认并调用 `request_cancel_uncouple()`
   - 当前用户是请求发起方：展示「已发出撤回请求」状态与「撤回我的请求」入口，点击后二次确认并调用 `withdraw_cancel_request()`
   - 当前用户是请求接收方：展示「同意撤回 / 拒绝撤回」两个入口，点击后二次确认并分别调用 `confirm_cancel_uncouple()` / `reject_cancel_uncouple()`
+- 同时支持“现在分手”申请：
+  - 无 pending 请求时也展示「现在分手」入口，点击后二次确认并调用 `request_destroy_uncouple()`
+  - 当前用户是申请发起方时展示等待状态与「撤回我的现在分手申请」入口，点击后二次确认并调用 `withdraw_destroy_request()`
+  - 当前用户是申请接收方时展示「同意现在分手 / 拒绝现在分手」入口，点击后二次确认并分别调用 `confirm_destroy_uncouple()` / `reject_destroy_uncouple()`
+- 两类 pending 请求互斥；有一类待回应时，另一类入口隐藏
 - banner 文案区分发起冻结的一方与接收方，但都显示剩余冻结天数与自动销毁说明
 
 #### 显示辅助
@@ -344,9 +349,9 @@ def render_settings_tab(db: dict) -> None
   - 当 `service_active_for_couple(couple_id)` 为 `True` 时显示频率选择，选项文案为 `7 天 / 每周`、`14 天 / 每两周`、`30 天 / 每月`，改动立即持久化到 `Couple.weekly_report_interval_days`
   - active / frozen 关系下展示「查看周报历史」入口，调用 `list_reports(couple_id)` 后由 `render_report_history()` 过滤 failed 并倒序展示
   - frozen 关系下展示冻结说明，开关只读，历史报告可读且不会生成新报告
-- active 关系下，「进入冻结期」与「双方同意立即销毁」都采用两步确认状态机；前者确认后调用 `start_uncouple()`，后者确认后调用 `confirm_uncouple()`
-- `confirm_uncouple()` 成功后不再停留在设置页，而是切到告别页短暂停留，再自动回到登录页
-- frozen 关系下，settings 内部也复用 `render_frozen_status_banner()`，让用户能在设置页看到撤回冻结的三态入口与结果反馈
+- active 关系下，「进入冻结期」采用两步确认状态机，确认后调用 `start_uncouple()`
+- frozen 关系下，settings 不重复渲染完整 banner，只保留说明文案，并把撤回冻结 / 现在分手 / 回应请求的入口统一收敛到页面顶部的冻结 banner
+- “现在分手”被对方同意后，或冻结期到期自动销毁后，都会进入同一张温和的告别页；页面不会自动跳走，由用户点击“返回首页”后再回到常规首页
 - 周报 UI 文案基调：
   - 保持温和、不评判、不指责任一方
   - 不使用「你应该」「你需要」「建议你」等祈使句
@@ -358,5 +363,6 @@ def render_settings_tab(db: dict) -> None
 |-----------------|----------|
 | 无关系 | 输入伴侣 ID 并发送绑定请求 |
 | `pending_bind` | 发送方显示等待提示，接收方显示接受/拒绝引导 |
-| `active` | 展示已绑定信息、二次确认后的「进入冻结期」与二次确认后的「双方同意立即销毁」入口 |
-| `frozen` | 展示冻结 banner、撤回冻结三态入口与导出入口 |
+| `active` | 展示已绑定信息与二次确认后的「进入冻结期」入口 |
+| `frozen` | 展示冻结 banner、撤回冻结三态入口、现在分手申请三态入口与导出入口 |
+| 已销毁后的登录态 | 展示统一告别页，并提供“返回首页”按钮 |
