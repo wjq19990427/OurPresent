@@ -121,16 +121,26 @@ def _render_report_history_entry(couple) -> None:
         render_report_history(list_reports(couple.couple_id))
 
 
+def _weekly_report_toggle_available(couple) -> bool:
+    return bool(couple and couple.couple_status == "active")
+
+
 def _render_weekly_report_section(user, couple) -> None:
     st.markdown("### 📊 情感周报服务")
     st.caption("周报基于你们已共享的记录生成，不读私密内容。")
+    toggle_available = _weekly_report_toggle_available(couple)
+    toggle_value = (
+        user.weekly_report_enabled
+        if couple and couple.couple_status in ("active", "frozen")
+        else False
+    )
     enabled = st.checkbox(
         "开启我的情感周报服务",
-        value=user.weekly_report_enabled,
-        disabled=bool(couple and couple.couple_status == "frozen"),
-        help="这是你的个人意愿；双方都开启后，才会为你们的共享记录生成周报。",
+        value=toggle_value,
+        disabled=not toggle_available,
+        help="绑定伴侣后，双方都开启，才会为你们的共享记录生成周报。",
     )
-    if enabled != user.weekly_report_enabled:
+    if toggle_available and enabled != user.weekly_report_enabled:
         updated = update_user(user.user_id, {"weekly_report_enabled": enabled})
         if updated:
             st.session_state["user"] = updated
@@ -139,11 +149,11 @@ def _render_weekly_report_section(user, couple) -> None:
     status = partner_enabled_status(user.user_id)
     if not couple:
         st.caption("（未绑定伴侣）")
-        st.info("这个开关会保留为个人偏好；下次绑定后，频率会从 7 天 / 每周开始。")
+        st.info("先完成伴侣绑定，之后这里才会打开。")
         return
     if couple.couple_status == "pending_bind":
         st.caption("（等待绑定确认）")
-        st.info("绑定确认后，两人都开启即可生效。")
+        st.info("等绑定确认后，你们再一起决定是否开启周报。")
         return
     if couple.couple_status == "frozen":
         st.info("这段时间不再生成新的周报；已经留下的历史仍可查看。")

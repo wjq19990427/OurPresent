@@ -305,6 +305,7 @@ def render_mine_tab(db: dict) -> None
 - 创建记录时调用：
   - `save_session_final()`
   - `save_session_pending()`
+- 未绑定伴侣或仍处于 `pending_bind` 时，不展示写新记录入口，改为提示先去「设置」完成绑定
 - 时间线读取当前用户未共享的 `SessionRecord`
 - 过滤条件：`session.user_id == current_user_id and session.visibility != "shared"`
 - 按 `upload_time` 倒序
@@ -316,6 +317,8 @@ def render_mine_tab(db: dict) -> None
   - 草稿：继续编辑字段、完成
   - 仅自己：编辑字段、申请共享
   - 等待开放中：追加内容、修改时间、立即解锁、撤回共享申请
+  - 未共享记录：删除记录（需二次确认，调用 `delete_session()`）
+- 未绑定伴侣或仍处于 `pending_bind` 时，已有记录详情统一以 `read_only=True` 渲染，不展示编辑、共享申请、撤回、追加、修改时间、立即解锁等写操作
 - `couple_status == "frozen"` 时不展示新建入口，详情区继续以 `read_only=True` 隐藏编辑、申请共享、撤回、追加、修改时间、立即解锁等写操作
 - 「我的」tab 不展示评论区；评论互动仅保留在「我们」tab
 - 「我的」tab 不展示详情区的 `📁 文件预览`；附件预览统一放在卡片外层
@@ -333,10 +336,10 @@ def render_settings_tab(db: dict) -> None
   - 解除绑定入口
   - 冻结期导出入口
 - 「情感周报服务」section：
-  - 显示当前用户 `weekly_report_enabled` 开关，切换立即持久化到 `User`
-  - 开关旁说明：周报基于已共享记录生成，不读私密内容
-  - 未绑定伴侣时 section 仍显示，开关只影响个人偏好，并提示新绑定关系的频率从默认 7 天 / 每周开始
-  - pending bind 时提示绑定确认后双方开启即可生效
+  - 仅在 `couple_status == "active"` 时开放当前用户 `weekly_report_enabled` 开关，切换立即持久化到 `User`
+  - 开关旁说明：周报基于已共享记录生成，不读私密内容；绑定伴侣后，双方都开启才会生效
+  - 未绑定伴侣时 section 仍显示，但开关禁用并提示先完成绑定
+  - pending bind 时开关继续禁用，并提示等绑定确认后再一起决定是否开启
   - active 关系下展示对方开启状态
   - 当 `service_active_for_couple(couple_id)` 为 `True` 时显示频率选择，选项文案为 `7 天 / 每周`、`14 天 / 每两周`、`30 天 / 每月`，改动立即持久化到 `Couple.weekly_report_interval_days`
   - active / frozen 关系下展示「查看周报历史」入口，调用 `list_reports(couple_id)` 后由 `render_report_history()` 过滤 failed 并倒序展示

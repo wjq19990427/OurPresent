@@ -24,6 +24,7 @@ from backend.application.sessions import (
     add_comment,
     append_to_session,
     delete_comment,
+    delete_session,
     is_text_session,
     move_to_final,
     request_unlock,
@@ -665,6 +666,7 @@ def render_detail(
                     st.markdown(f"- {label}：`{value['from']}` → `{value['to']}`")
 
     if is_mine and not read_only:
+        pending_delete_key = f"pending_delete_session_{session.session_id}"
         visibility = session.visibility
         st.markdown("---")
         st.markdown(f"**隐私状态**：{_visibility_badge(session)}")
@@ -770,6 +772,32 @@ def render_detail(
                 revoke_unlock(session.session_id)
                 st.info("已撤回，记录恢复为私密状态。")
                 st.rerun()
+
+        st.markdown("---")
+        if st.button("🗑 删除这条记录", key=f"delete_session_{session.session_id}", width="stretch"):
+            st.session_state[pending_delete_key] = True
+            st.rerun()
+        if st.session_state.get(pending_delete_key):
+            st.warning("确认删除这条记录？相关文件和内容会一起消失，之后无法恢复。", icon="⚠️")
+            confirm_col, cancel_col = st.columns(2)
+            with confirm_col:
+                if st.button(
+                    "确认删除",
+                    key=f"confirm_delete_session_{session.session_id}",
+                    width="stretch",
+                ):
+                    delete_session(session.session_id, _uid())
+                    st.session_state.pop(pending_delete_key, None)
+                    st.session_state[selected_state_key] = None
+                    st.rerun()
+            with cancel_col:
+                if st.button(
+                    "取消",
+                    key=f"cancel_delete_session_{session.session_id}",
+                    width="stretch",
+                ):
+                    st.session_state.pop(pending_delete_key, None)
+                    st.rerun()
 
     if is_text:
         st.info("📝 纯文字记录：描述字段由内容自动填充，不可手动修改。")

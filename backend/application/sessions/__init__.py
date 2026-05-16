@@ -2,7 +2,7 @@
 
 from backend.application.sessions.comments import add_comment, delete_comment
 from backend.application.sessions.creation import save_session_final, save_session_pending
-from backend.application.sessions.destruction import destroy_couple_data
+from backend.application.sessions.destruction import delete_session, destroy_couple_data
 from backend.application.sessions.editing import (
     append_to_session,
     move_to_final,
@@ -24,6 +24,7 @@ __all__ = [
     "can_view_session",
     "collect_export_files",
     "delete_comment",
+    "delete_session",
     "destroy_couple_data",
     "is_text_session",
     "move_to_final",

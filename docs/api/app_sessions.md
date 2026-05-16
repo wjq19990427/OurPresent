@@ -269,6 +269,21 @@ def collect_export_files(user_id: str) -> list[Path]
 ### `backend/application/sessions/destruction.py` — 销毁
 
 ```python
+def delete_session(session_id: str, user_id: str) -> None
+```
+
+- 删除单条 session
+- 仅允许记录作者删除自己的未共享记录
+- 删除前会校验：
+  - 记录必须存在
+  - `session.user_id == user_id`
+  - `visibility != "shared"`
+- 成功后同时删除：
+  - DB 中的 session 记录
+  - 关联附件文件
+  - 对应 `Final/{session_id}.md`
+
+```python
 def destroy_couple_data(couple_id: str) -> None
 ```
 

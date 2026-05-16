@@ -7,6 +7,7 @@ import pytest
 
 from backend.application.sessions.comments import add_comment, delete_comment
 from backend.application.sessions.creation import save_session_final, save_session_pending
+from backend.application.sessions.destruction import delete_session
 from backend.application.sessions.editing import (
     append_to_session,
     move_to_final,
@@ -113,6 +114,64 @@ def test_save_session_final_writes_markdown_and_complete() -> None:
     content = md_path.read_text(encoding="utf-8")
     assert "海边散步" in content
     assert "开心" in content
+
+
+def test_delete_session_removes_unshared_record_and_files() -> None:
+    user = create_user("alice", "secret123")
+
+    save_session_final(
+        user.user_id,
+        None,
+        [(b"photo", "photo.jpg")],
+        "file",
+        {
+            "content_time": "2026-05-01",
+            "description": "海边散步",
+            "feeling": "开心",
+        },
+    )
+
+    stored = list_sessions_for_user(user.user_id)
+    assert len(stored) == 1
+    session = stored[0]
+    attachment_path = Path(session.files[0]["path"])
+    markdown_path = attachment_path.parent / f"{session.session_id}.md"
+
+    delete_session(session.session_id, user.user_id)
+
+    assert get_session_by_id(session.session_id) is None
+    assert attachment_path.exists() is False
+    assert markdown_path.exists() is False
+
+
+def test_delete_session_rejects_shared_or_foreign_record() -> None:
+    owner = create_user("alice", "secret123")
+    other = create_user("bob", "secret123")
+    session = SessionRecord(
+        session_id="session_shared",
+        user_id=owner.user_id,
+        couple_id="cp_1",
+        status="final",
+        visibility="shared",
+        unlock_requested_at=None,
+        unlock_at=None,
+        shared_at="2026-05-01 12:00:00",
+        upload_time="2026-05-01 10:00:00",
+        archive_time="2026-05-01 11:00:00",
+        is_complete=True,
+        source_type="text",
+        content_time="2026-05-01",
+        feeling="平静",
+    )
+    add_session(session)
+
+    with pytest.raises(ValueError, match="已共享"):
+        delete_session(session.session_id, owner.user_id)
+
+    session.visibility = "private"
+    replace_session(session)
+    with pytest.raises(ValueError, match="只能删除自己的记录"):
+        delete_session(session.session_id, other.user_id)
 
 
 def test_move_to_final_moves_pending_files_and_writes_markdown() -> None:

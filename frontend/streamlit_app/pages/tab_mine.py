@@ -21,6 +21,18 @@ from frontend.streamlit_app.components import (
 )
 
 
+def _can_create_records(couple) -> bool:
+    return bool(couple and couple.couple_status == "active")
+
+
+def _recording_gate_message(couple) -> str | None:
+    if not couple:
+        return "先去「设置」里绑定伴侣，这里才会打开写记录和共享。"
+    if couple.couple_status == "pending_bind":
+        return "等绑定确认后，这里会打开写记录和共享。"
+    return None
+
+
 def _validation_record(
     user_id: str,
     couple_id: str | None,
@@ -148,6 +160,8 @@ def _render_new_record_entry(*, has_sessions: bool) -> None:
 
 
 def render_mine_tab(db: dict) -> None:
+    couple = _couple()
+    can_create_records = _can_create_records(couple)
     sessions = sorted(
         [
             session
@@ -158,7 +172,14 @@ def render_mine_tab(db: dict) -> None:
         reverse=True,
     )
 
-    _render_new_record_entry(has_sessions=bool(sessions))
+    if _is_frozen():
+        _render_new_record_entry(has_sessions=bool(sessions))
+    elif can_create_records:
+        _render_new_record_entry(has_sessions=bool(sessions))
+    else:
+        gate_message = _recording_gate_message(couple)
+        if gate_message:
+            st.info(gate_message)
     st.divider()
 
     if not sessions:
@@ -177,7 +198,7 @@ def render_mine_tab(db: dict) -> None:
                 render_detail(
                     session,
                     mode=mode,
-                    read_only=_is_frozen(),
+                    read_only=_is_frozen() or not can_create_records,
                     selected_state_key="mine_selected",
                     show_comments=False,
                     show_file_preview=False,
