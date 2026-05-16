@@ -17,10 +17,14 @@ from backend.infrastructure.database.db import parse_dt
 from backend.infrastructure.database.sessions_repo import list_sessions_for_couple
 from backend.infrastructure.database.users_repo import get_user_by_id
 from frontend.streamlit_app.components import (
+    SETTINGS_BIND_SECTION_ID,
+    SETTINGS_REPORT_SECTION_ID,
     _couple,
+    _is_recently_shared,
     _uid,
     render_card,
     render_comments,
+    render_tab_jump_button,
     render_weekly_report,
 )
 
@@ -31,8 +35,20 @@ def _username(user_id: str) -> str:
 
 
 def _settings_hint_button(key: str) -> None:
-    if st.button("去「设置」开启", key=key, width="stretch"):
-        st.info("入口在上方「⚙️ 设置」tab 的「情感周报服务」里。")
+    render_tab_jump_button(
+        "去「设置」开启",
+        "⚙️ 设置",
+        key=key,
+        target_section_id=SETTINGS_REPORT_SECTION_ID,
+    )
+
+
+def _should_show_first_shared_moment(sessions) -> bool:
+    shared_sessions = [session for session in sessions if session.visibility == "shared"]
+    if not shared_sessions:
+        return False
+    first_shared = min(shared_sessions, key=lambda session: session.shared_at or "")
+    return _is_recently_shared(first_shared)
 
 
 def _render_weekly_report_panel(couple) -> None:
@@ -121,10 +137,18 @@ def _render_pending_unlock_preview(sessions) -> None:
 def render_us_tab(db: dict) -> None:
     couple = _couple()
     if not couple:
-        st.info("先去「设置」里绑定伴侣。")
+        with st.container(border=True):
+            st.markdown("#### 这里会慢慢放下你们已经开放的记录")
+            st.caption("先把彼此连上。等绑定完成后，共享过的内容会按时间留在这里。")
+            render_tab_jump_button(
+                "去「设置」绑定伴侣",
+                "⚙️ 设置",
+                key="us_bind_settings",
+                target_section_id=SETTINGS_BIND_SECTION_ID,
+            )
         return
     if couple.couple_status == "pending_bind":
-        st.info("绑定确认后，这里会出现你们共享的记录。")
+        st.info("等绑定确认后，这里会开始出现你们已经开放的记录。")
         return
 
     _render_weekly_report_panel(couple)
@@ -132,6 +156,10 @@ def render_us_tab(db: dict) -> None:
 
     couple_sessions = list_sessions_for_couple(couple.couple_id)
     _render_pending_unlock_preview(couple_sessions)
+    if _should_show_first_shared_moment(couple_sessions):
+        with st.container(border=True):
+            st.markdown("#### 你们的第一条共享记录来了")
+            st.caption("先慢慢看看，那一刻各自留下了什么。")
 
     sessions = sorted(
         [
@@ -144,7 +172,7 @@ def render_us_tab(db: dict) -> None:
     )
 
     if not sessions:
-        st.info("还没有已开放的记录，去「我的」写一条吧。")
+        st.info("这里还没有已经开放的记录。等第一条到了约定时间，它会出现在这里。")
         return
 
     selected_id = st.session_state.get("us_selected")

@@ -31,6 +31,7 @@ def render_farewell_page() -> None:
         st.caption("这个页面会先留在这里，等你准备好再回到首页。")
         if st.button("返回首页", width="stretch", type="primary"):
             st.session_state["farewell_state"] = None
-            if "farewell" in st.query_params:
-                del st.query_params["farewell"]
+            st.session_state["user"] = None
+            if "token" in st.query_params:
+                del st.query_params["token"]
             st.rerun()

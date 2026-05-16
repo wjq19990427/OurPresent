@@ -38,8 +38,6 @@ st.set_page_config(
     layout="wide",
 )
 
-_FAREWELL_QUERY_KEY = "farewell"
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 会话状态初始化
@@ -56,10 +54,6 @@ def _init_state() -> None:
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
-
-    farewell_reason = st.query_params.get(_FAREWELL_QUERY_KEY)
-    if farewell_reason:
-        st.session_state["farewell_state"] = {"reason": farewell_reason}
 
     # 刷新页面时通过 URL token 自动恢复登录
     if st.session_state["user"] is None:
@@ -127,7 +121,9 @@ def render_auth_page() -> None:
 
 def _open_farewell_page(reason: str) -> None:
     st.session_state["farewell_state"] = {"reason": reason}
-    st.query_params[_FAREWELL_QUERY_KEY] = reason
+    st.session_state["user"] = None
+    if "token" in st.query_params:
+        del st.query_params["token"]
 # ─────────────────────────────────────────────────────────────────────────────
 # 主函数
 # ─────────────────────────────────────────────────────────────────────────────

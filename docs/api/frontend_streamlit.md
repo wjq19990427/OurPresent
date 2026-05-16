@@ -88,6 +88,20 @@ def _is_recently_shared(session: SessionRecord) -> bool
 - 基于 `shared_at` 判断记录是否在 24 小时内解锁
 
 ```python
+def render_tab_jump_button(
+    label: str,
+    target_tab: str,
+    *,
+    key: str,
+    target_section_id: str | None = None,
+) -> None
+```
+
+- 渲染一个按钮；点击后在当前页面内切换到指定 tab
+- `target_section_id` 非空时，切换后继续滚动到对应 section 锚点
+- 仅用于减少「我们」tab 跳去「⚙️ 设置」时的迷路成本，不改变三 tab 结构
+
+```python
 def _unlock_at_for_choice(
     choice: str,
     custom_date: date | None = None,
@@ -264,8 +278,8 @@ def render_us_tab(db: dict) -> None
 
 - Tab 1「🏠 我们」，登录后默认落地页
 - 当关系处于 `frozen` 时，登录后的页面顶部会显示共用冻结期 banner
-- 未绑定伴侣时提示去「设置」绑定
-- pending bind 时提示绑定确认后出现共享记录
+- 未绑定伴侣时展示温和空状态，并提供直接跳到「⚙️ 设置」里伴侣绑定区的按钮
+- pending bind 时提示绑定确认后这里会出现已开放记录
 - active / frozen 关系下，在 shared 时间线之上显示「📊 周报」区块
 - 周报区状态矩阵：
   - 双方都未开启：显示「一起开启情感周报，每周看到我们的足迹」并引导去「设置」
@@ -280,6 +294,7 @@ def render_us_tab(db: dict) -> None
 - 读取当前 couple 下所有 `visibility == "shared"` 的 `SessionRecord`
 - 同时读取伴侣的 `visibility == "pending_unlock"` 记录并在共享时间线上方展示预告区块
 - 预告区块只展示“有记录正在路上”和开放时间，不展示作者写了什么、文件类型、描述、感受、原因或 session 内容字段
+- 当当前 couple 历史上第一条 shared 记录的 `shared_at` 距当前时间不足 24 小时，在预告区块下方额外展示一次性温和提示「你们的第一条共享记录来了」
 - 过滤条件：
   - `session.couple_id == couple.couple_id`
   - `session.visibility == "shared"`
@@ -296,6 +311,7 @@ def render_us_tab(db: dict) -> None
 - 点击 `评论` 后，仅在所属卡片下方内嵌展开评论区；再次点击同一按钮会收起
 - 「我们」tab 不再额外渲染 `xxx 的记录` 标题、文件预览或只读字段详情，避免与卡片预览重复
 - 不展示编辑字段、申请共享、撤回、追加、修改时间、立即解锁等自身记录操作
+- active / frozen 关系下若 shared 列表为空，空状态文案保持克制，不使用撒娇或二次元口吻
 
 ```python
 def render_mine_tab(db: dict) -> None
@@ -303,6 +319,8 @@ def render_mine_tab(db: dict) -> None
 
 - Tab 2「📝 我的」
 - 当关系处于 `frozen` 时，登录后的页面顶部会显示共用冻结期 banner
+- 顶部固定显示简短说明：这里只显示当前用户自己写的、还没开放的记录；已经共享的会去「我们」
+- 当 `couple_status == "active"` 且双方还没有任何 session 时，在正文顶部展示一次性引导「你们绑定了，先写下第一条记录」；写下任意第一条记录后自动消失，不落库
 - 顶部提供「✍️ 写新记录」入口
 - 当前用户没有任何记录时，入口默认展开并展示首条记录引导；已有记录后保持折叠
 - 写新记录入口支持上传文件或粘贴文字
@@ -313,7 +331,10 @@ def render_mine_tab(db: dict) -> None
 - 未绑定伴侣或仍处于 `pending_bind` 时，不展示写新记录入口，改为提示先去「设置」完成绑定
 - 时间线读取当前用户未共享的 `SessionRecord`
 - 过滤条件：`session.user_id == current_user_id and session.visibility != "shared"`
-- 按 `upload_time` 倒序
+- 分组展示：
+  - `visibility == "pending_unlock"`：进入上方「等待开放」区，按 `unlock_at` 从近到远排序；区标题旁显示记录数，且额外显示最近一条的节奏提示（如「最快 3 天后开放」）
+  - 其余未共享记录：进入下方「私密记录」区，按 `upload_time` 倒序
+- 任一区为空时不渲染该区标题
 - 每条卡片展示 `_status_badge()` 的 4 种状态标签
 - 卡片外层直接渲染首个附件预览；若首个附件是视频，则在卡片中直接可播放
 - 点击 `查看/编辑` 后，详情区紧贴所属卡片内嵌展开；再次点击同一按钮会收起，不在页面底部集中展开
@@ -327,6 +348,7 @@ def render_mine_tab(db: dict) -> None
 - `couple_status == "frozen"` 时不展示新建入口，详情区继续以 `read_only=True` 隐藏编辑、申请共享、撤回、追加、修改时间、立即解锁等写操作
 - 「我的」tab 不展示评论区；评论互动仅保留在「我们」tab
 - 「我的」tab 不展示详情区的 `📁 文件预览`；附件预览统一放在卡片外层
+- active 关系下若当前用户没有任何未共享记录，空状态文案保持克制，不使用撒娇或二次元口吻
 
 ```python
 def render_settings_tab(db: dict) -> None
@@ -351,7 +373,8 @@ def render_settings_tab(db: dict) -> None
   - frozen 关系下展示冻结说明，开关只读，历史报告可读且不会生成新报告
 - active 关系下，「进入冻结期」采用两步确认状态机，确认后调用 `start_uncouple()`
 - frozen 关系下，settings 不重复渲染完整 banner，只保留说明文案，并把撤回冻结 / 现在分手 / 回应请求的入口统一收敛到页面顶部的冻结 banner
-- “现在分手”被对方同意后，或冻结期到期自动销毁后，都会进入同一张温和的告别页；页面不会自动跳走，由用户点击“返回首页”后再回到常规首页
+- “现在分手”被对方同意后，或冻结期到期自动销毁后，都会进入同一张温和的告别页；告别原因只保存在 `st.session_state["farewell_state"]`，不写入 URL
+- 告别页不会自动跳走；用户点击“返回首页”后清空前端登录态并回到登录页；浏览器刷新也不会重放告别页
 - 周报 UI 文案基调：
   - 保持温和、不评判、不指责任一方
   - 不使用「你应该」「你需要」「建议你」等祈使句

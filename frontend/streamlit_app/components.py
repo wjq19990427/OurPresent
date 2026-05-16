@@ -4,6 +4,7 @@ Reusable Streamlit components and helpers.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import replace
 from datetime import date, datetime, timedelta
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 import streamlit as st
+import streamlit.components.v1 as st_components
 
 from backend.application.couples import (
     CoupleError,
@@ -68,6 +70,8 @@ _APPENDABLE_TEXT_FIELDS = tuple(
 )
 
 _UPLOAD_FIELD_ORDER = ("description", "feeling", "reason", "content_time")
+SETTINGS_REPORT_SECTION_ID = "settings-report-section"
+SETTINGS_BIND_SECTION_ID = "settings-bind-section"
 
 
 def _current_user() -> Optional[User]:
@@ -91,6 +95,42 @@ def _partner_id() -> Optional[str]:
     if not couple or couple.couple_status != "active":
         return None
     return couple.user_b if couple.user_a == _uid() else couple.user_a
+
+
+def render_tab_jump_button(
+    label: str,
+    target_tab: str,
+    *,
+    key: str,
+    target_section_id: str | None = None,
+) -> None:
+    if st.button(label, key=key, width="stretch"):
+        target_tab_json = json.dumps(target_tab)
+        target_section_json = json.dumps(target_section_id or "")
+        st_components.html(
+            f"""
+            <script>
+            const targetTab = {target_tab_json};
+            const targetSectionId = {target_section_json};
+            const root = window.parent.document;
+            const tabs = Array.from(root.querySelectorAll('button[role="tab"]'));
+            const tab = tabs.find((item) => item.innerText.trim() === targetTab);
+            if (tab) {{
+              tab.click();
+              if (targetSectionId) {{
+                setTimeout(() => {{
+                  const section = root.getElementById(targetSectionId);
+                  if (section) {{
+                    section.scrollIntoView({{behavior: "smooth", block: "start"}});
+                  }}
+                }}, 120);
+              }}
+            }}
+            </script>
+            """,
+            height=0,
+            width=0,
+        )
 
 
 def _session_thumb(session: SessionRecord):
@@ -218,8 +258,10 @@ def _run_frozen_action(action: str) -> None:
             )
         elif action == "confirm_destroy":
             confirm_destroy_uncouple(user_id)
-            st.session_state["user"] = get_user_by_id(user_id)
+            st.session_state["user"] = None
             st.session_state["farewell_state"] = {"reason": "destroy_now"}
+            if "token" in st.query_params:
+                del st.query_params["token"]
         elif action == "reject_destroy":
             reject_destroy_uncouple(user_id)
             _set_frozen_notice("info", "已先不走现在分手这一步，关系仍停在冻结期。")

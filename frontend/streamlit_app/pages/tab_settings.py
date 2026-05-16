@@ -27,6 +27,8 @@ from backend.infrastructure.database.couples_repo import (
 )
 from backend.infrastructure.database.users_repo import get_user_by_id, update_user
 from frontend.streamlit_app.components import (
+    SETTINGS_BIND_SECTION_ID,
+    SETTINGS_REPORT_SECTION_ID,
     _couple,
     _current_user,
     _partner_id,
@@ -99,6 +101,7 @@ def _weekly_report_toggle_available(couple) -> bool:
 
 
 def _render_weekly_report_section(user, couple) -> None:
+    st.markdown(f"<div id='{SETTINGS_REPORT_SECTION_ID}'></div>", unsafe_allow_html=True)
     st.markdown("### 📊 情感周报服务")
     st.caption("周报基于你们已共享的记录生成，不读私密内容。")
     toggle_available = _weekly_report_toggle_available(couple)
@@ -209,6 +212,7 @@ def render_settings_tab(db: dict) -> None:
                     st.rerun()
         st.divider()
 
+    st.markdown(f"<div id='{SETTINGS_BIND_SECTION_ID}'></div>", unsafe_allow_html=True)
     st.markdown("### 💑 伴侣绑定")
 
     if not couple:

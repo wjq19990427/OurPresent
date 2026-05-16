@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
@@ -10,7 +11,11 @@ import streamlit as st
 from backend.application.sessions import save_session_final, save_session_pending, validate_session
 from backend.config.settings import TEXT_EXTS
 from backend.domain.models import SessionRecord
-from backend.infrastructure.database.sessions_repo import list_sessions_for_user
+from backend.infrastructure.database.db import parse_dt
+from backend.infrastructure.database.sessions_repo import (
+    list_sessions_for_couple,
+    list_sessions_for_user,
+)
 from frontend.streamlit_app.components import (
     _couple,
     _is_frozen,
@@ -27,10 +32,69 @@ def _can_create_records(couple) -> bool:
 
 def _recording_gate_message(couple) -> str | None:
     if not couple:
-        return "先去「设置」里绑定伴侣，这里才会打开写记录和共享。"
+        return "先去「设置」里绑定伴侣。关系连上后，这里就会开始留下只属于你的记录。"
     if couple.couple_status == "pending_bind":
         return "等绑定确认后，这里会打开写记录和共享。"
     return None
+
+
+def _pending_unlock_sort_key(session: SessionRecord) -> tuple[str, str]:
+    return (session.unlock_at or "9999-12-31 23:59:59", session.upload_time)
+
+
+def _next_unlock_label(sessions: list[SessionRecord]) -> str | None:
+    if not sessions:
+        return None
+    unlock_dt = parse_dt(sessions[0].unlock_at or "")
+    if not unlock_dt:
+        return "最快开放时间待定"
+    remaining = unlock_dt - datetime.now()
+    if remaining.total_seconds() <= 0:
+        return "最快即将开放"
+    days = remaining.days
+    hours = remaining.seconds // 3600
+    minutes = (remaining.seconds % 3600) // 60
+    if days > 0:
+        return f"最快 {days + (1 if remaining.seconds else 0)} 天后开放"
+    if hours > 0:
+        return f"最快 {hours} 小时后开放"
+    return f"最快 {max(1, minutes)} 分钟后开放"
+
+
+def _should_show_first_record_guide(couple, couple_sessions: list[SessionRecord]) -> bool:
+    return bool(couple and couple.couple_status == "active" and not couple_sessions)
+
+
+def _render_group(
+    title: str,
+    sessions: list[SessionRecord],
+    *,
+    summary: str | None = None,
+    can_create_records: bool,
+) -> None:
+    if not sessions:
+        return
+
+    st.markdown(f"#### {title} · {len(sessions)} 条")
+    if summary:
+        st.caption(summary)
+
+    selected_id = st.session_state.get("mine_selected")
+    cols = st.columns(3)
+    for index, session in enumerate(sessions):
+        target_col = cols[index % 3]
+        render_card(target_col, session, "mine_selected")
+        if selected_id == session.session_id:
+            with target_col:
+                mode = "pending" if session.status == "pending" else "final"
+                render_detail(
+                    session,
+                    mode=mode,
+                    read_only=_is_frozen() or not can_create_records,
+                    selected_state_key="mine_selected",
+                    show_comments=False,
+                    show_file_preview=False,
+                )
 
 
 def _validation_record(
@@ -162,15 +226,28 @@ def _render_new_record_entry(*, has_sessions: bool) -> None:
 def render_mine_tab(db: dict) -> None:
     couple = _couple()
     can_create_records = _can_create_records(couple)
-    sessions = sorted(
-        [
-            session
-            for session in list_sessions_for_user(_uid())
-            if session.visibility != "shared"
-        ],
+    couple_sessions = list_sessions_for_couple(couple.couple_id) if couple else []
+    sessions = [
+        session
+        for session in list_sessions_for_user(_uid())
+        if session.visibility != "shared"
+    ]
+    waiting_sessions = sorted(
+        [session for session in sessions if session.visibility == "pending_unlock"],
+        key=_pending_unlock_sort_key,
+    )
+    private_sessions = sorted(
+        [session for session in sessions if session.visibility != "pending_unlock"],
         key=lambda session: session.upload_time,
         reverse=True,
     )
+
+    st.caption("这里只显示你自己写的、还没开放的记录。已经共享的会去「我们」。")
+
+    if _should_show_first_record_guide(couple, couple_sessions):
+        with st.container(border=True):
+            st.markdown("#### 你们绑定了，先写下第一条记录")
+            st.caption("它会先留在你这里，等你决定什么时候让对方看见。")
 
     if _is_frozen():
         _render_new_record_entry(has_sessions=bool(sessions))
@@ -183,26 +260,24 @@ def render_mine_tab(db: dict) -> None:
     st.divider()
 
     if not sessions:
-        st.info("还没有未共享的记录。")
+        if can_create_records:
+            st.info("这里暂时没有还没开放的记录。写下新的内容后，它会先留在这里。")
         return
 
+    _render_group(
+        "等待开放",
+        waiting_sessions,
+        summary=_next_unlock_label(waiting_sessions),
+        can_create_records=can_create_records,
+    )
+    if waiting_sessions and private_sessions:
+        st.divider()
+    _render_group(
+        "私密记录",
+        private_sessions,
+        can_create_records=can_create_records,
+    )
+
     selected_id = st.session_state.get("mine_selected")
-
-    cols = st.columns(3)
-    for index, session in enumerate(sessions):
-        target_col = cols[index % 3]
-        render_card(target_col, session, "mine_selected")
-        if selected_id == session.session_id:
-            with target_col:
-                mode = "pending" if session.status == "pending" else "final"
-                render_detail(
-                    session,
-                    mode=mode,
-                    read_only=_is_frozen() or not can_create_records,
-                    selected_state_key="mine_selected",
-                    show_comments=False,
-                    show_file_preview=False,
-                )
-
     if selected_id and not any(item.session_id == selected_id for item in sessions):
         st.session_state["mine_selected"] = None
