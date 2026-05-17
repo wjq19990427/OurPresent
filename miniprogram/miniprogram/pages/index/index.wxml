@@ -1,1 +1,5 @@
-<view>OurPresent</view>
+<view class="page">
+  <view class="title">OurPresent</view>
+  <view class="subtitle">Phase 2 微信小程序客户端骨架</view>
+  <button class="cta" bindtap="goToSmoke">打开 crypto smoke test</button>
+</view>
