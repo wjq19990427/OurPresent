@@ -14,6 +14,7 @@ cp .env.example .env
 
 # 生成本地 TLS 证书（需先装 mkcert）
 mkcert -install
+mkdir -p certs
 mkcert -cert-file certs/cert.pem -key-file certs/key.pem localhost 127.0.0.1
 
 # 启动全栈
