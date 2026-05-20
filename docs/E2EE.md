@@ -2,7 +2,7 @@
 
 **最后更新**：2026-05-15
 **性质**：架构设计决策。本文档是技术决策的"已定档"形态，不再回到 PM / 用户层讨论。后续如需调整由架构师评估并更新本文档。
-**前置文档**：`docs/DIRECTION.md`（产品方向与隐私要求）·`docs/research/wechat-miniprogram-crypto.md`（小程序事实边界）
+**前置文档**：`docs/DIRECTION.md`（产品方向与隐私要求）·`docs/research/wechat-miniprogram-crypto.md`（小程序事实边界调研）·`docs/research/wechat-miniprogram-crypto-verified.md`（M1 真机实测结论）
 
 ## 决策范围
 
@@ -151,26 +151,29 @@ A 是发起方，B 是被邀请方。两人**必须物理在场或电话在线**
 
 ## 4. 加密原语与库选型
 
+> **M1 实测更新（2026-05-20）**：libsodium.js 已确认不可用于小程序 service runtime，选型切换为 `@noble/*` 家族。详见 `docs/research/wechat-miniprogram-crypto-verified.md`。
+
 | 用途 | 算法 | 库 |
 |------|------|-----|
-| ECDH | X25519 | libsodium.js |
-| AEAD | XChaCha20-Poly1305 | libsodium.js |
-| 哈希 / HMAC | SHA-256 | libsodium.js（HKDF 自己组装） |
-| 口令 KDF | Argon2id | hash-wasm 或 libsodium.js |
-| 随机数 | `wx.getRandomValues` | 平台内建 |
+| ECDH | X25519 | `@noble/curves/x25519` |
+| AEAD | XChaCha20-Poly1305 | `@noble/ciphers` |
+| 哈希 / HMAC | SHA-256 | `@noble/hashes/sha2` |
+| HKDF | HKDF-SHA256 | `@noble/hashes/hkdf` |
+| 口令 KDF | Argon2id | `@noble/hashes/argon2` |
+| 随机数 | `wx.getRandomValues` | 平台内建，唯一入口 |
 
-**选型理由**：
+**选型理由（M1 实测后更新）**：
 
-- **libsodium.js**：task-23 报告确认体积约 188KB min+gzip，覆盖 X25519 + XChaCha20-Poly1305 + Argon2，**优先用它一个库覆盖大部分**
-- **Argon2 单独考虑 hash-wasm**：如 libsodium.js 的 Argon2 实现在小程序运行时上有兼容性问题，回落到 hash-wasm（WASM 体积约 11KB gzip，更轻）
-- **不选 AES-GCM**：XChaCha20-Poly1305 的 nonce 是 24 字节随机生成不怕碰撞，AES-GCM 12 字节 nonce 在密钥重用场景下风险更高。XChaCha 在 JS/WASM 上性能也好
-- **不选 @noble/curves**：体积偏大（unpacked ~1.25MB），单一原语库的优势在 tree-shaking 后未必赢 libsodium，且签名风格不统一
+- **libsodium.js 已排除**：M1 实测发现三层不可解兼容性问题——随机源探测不识别 `wx.getRandomValues`、UMD `}(this)` 在 service runtime 全局绑定失效、无 WASM 路径的 asm fallback 损坏。堆 fallback 会引入不可控分支，选择直接替换。
+- **`@noble/*` 家族**：Paul Miller 维护，经过安全审计，纯 JS 无 WASM 依赖，tree-shaking 后 crypto 分包产物约 **68 KB**（esbuild 打包）。覆盖所有 E2EE 算法。
+- **不选 AES-GCM**：XChaCha20-Poly1305 nonce 24 字节随机生成不怕碰撞，比 AES-GCM 12 字节 nonce 在密钥重用场景下更安全。
+- **随机数唯一入口**：`wx.getRandomValues`，不回落到 browser `crypto.getRandomValues` 或 Node `crypto`，避免在小程序 sandbox 里使用非平台随机源。
 
-**懒加载策略**（task-23 体积约束派生）：
+**懒加载策略**：
 
-- 配对 / 恢复路径上的库放主包
-- Argon2 只在备份设置 / 恢复时用，放分包，按需加载
-- 整体加密栈预算 ≤ 300KB（主包余量内）
+- 加密栈统一放 `subpackages/crypto`，主包按需加载
+- 实测分包产物 ≤ 68 KB（远小于 500 KB 预算）
+- Argon2id 在开发者工具模拟器耗时约 3.3s，需在配对 / 恢复 UX 里加 loading 状态
 
 ## 5. 元数据最小化
 
@@ -191,7 +194,7 @@ A 是发起方，B 是被邀请方。两人**必须物理在场或电话在线**
 
 ## 6. 实现里程碑（无时间承诺，按依赖排序）
 
-1. **小程序工程脚手架** + libsodium.js 跑通基本 AEAD / ECDH / Argon2 smoke test（验证 task-23 报告里所有"未验证"项）
+1. ✅ **小程序工程脚手架** + `@noble/*` 跑通基本 AEAD / ECDH / Argon2 smoke test（M1 完成，`docs/research/wechat-miniprogram-crypto-verified.md` 落盘；libsodium.js 已排除）
 2. **配对协议端到端实现** + 短码 SAS UX
 3. **基本的延时记录写入流程**（客户端加密 → 服务端密文 + 元数据）
 4. **延时派送门禁**（服务端对接收方延迟派送）
