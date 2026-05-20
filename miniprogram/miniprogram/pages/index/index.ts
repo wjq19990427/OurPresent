@@ -1,7 +1,7 @@
 Page({
   goToSmoke() {
     wx.navigateTo({
-      url: '/pages/smoke/smoke',
+      url: '/subpackages/crypto/pages/smoke/index',
     })
   },
 })

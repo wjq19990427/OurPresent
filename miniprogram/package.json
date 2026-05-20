@@ -1,0 +1,17 @@
+{
+  "name": "ourpresent-miniprogram",
+  "private": true,
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "typecheck": "./node_modules/.bin/tsc -p ./tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0",
+    "miniprogram-api-typings": "^4.0.5",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^2.2.0",
+    "@noble/hashes": "^2.2.0"
+  }
+}

@@ -1,14 +1,13 @@
 {
   "pages": [
-    "pages/index/index",
-    "pages/smoke/smoke"
+    "pages/index/index"
   ],
   "subpackages": [
     {
       "root": "subpackages/crypto",
       "name": "crypto",
       "pages": [
-        "pages/bridge/index"
+        "pages/smoke/index"
       ]
     }
   ],

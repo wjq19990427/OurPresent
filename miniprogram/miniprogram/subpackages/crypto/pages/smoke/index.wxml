@@ -1,16 +1,16 @@
 <view class="page">
   <view class="hero">
     <view class="eyebrow">Phase 2 E2EE</view>
-    <view class="title">libsodium.js smoke test</view>
+    <view class="title">Crypto smoke test</view>
     <view class="subtitle">
       验证小程序环境里的 X25519、AEAD、Argon2id 与关键 wx API 可用性。
     </view>
     <button class="rerun" loading="{{loading}}" bindtap="runSmoke">
-      {{loading ? '测试中…' : '重新运行'}}
+      {{rerunButtonText}}
     </button>
     <view wx:if="{{lastRunAt}}" class="meta">最近一次运行：{{lastRunAt}}</view>
     <view wx:if="{{failureMessage}}" class="error-banner">
-      分包加载失败：{{failureMessage}}
+      测试执行失败：{{failureMessage}}
     </view>
   </view>
 
@@ -18,8 +18,8 @@
     <view class="section-title">wx API availability</view>
     <view wx:for="{{apiChecks}}" wx:key="id" class="row">
       <view class="label">{{item.label}}</view>
-      <view class="pill {{item.available ? 'ok' : 'bad'}}">
-        {{item.available ? 'available' : 'unavailable'}}
+      <view class="pill {{item.availabilityClass}}">
+        {{item.availabilityText}}
       </view>
     </view>
   </view>
@@ -27,13 +27,14 @@
   <view class="card">
     <view class="section-title">Crypto suite</view>
     <view class="hint">
-      crypto 分包加载状态：{{subpackageReady ? 'ready' : (loading ? 'loading' : 'not loaded')}}
+      crypto 分包加载状态：{{subpackageStatusText}}
     </view>
+    <view class="hint">{{subpackageDetail}}</view>
     <view wx:for="{{suite}}" wx:key="id" class="suite-item">
       <view class="suite-header">
         <view class="label">{{item.label}}</view>
-        <view class="status {{item.status}}">
-          {{item.status === 'passed' ? '✓ 通过' : (item.status === 'failed' ? '✗ 失败' : '… 等待')}}
+        <view class="status {{item.statusClass}}">
+          {{item.statusText}}
         </view>
       </view>
       <view class="detail">{{item.message}}</view>

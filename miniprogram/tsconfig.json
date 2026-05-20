@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "rootDir": "./miniprogram",
+    "outDir": "./dist",
+    "strict": true,
+    "noEmitOnError": true,
+    "types": [
+      "miniprogram-api-typings"
+    ],
+    "skipLibCheck": true
+  },
+  "include": [
+    "miniprogram/**/*.ts"
+  ]
+}
