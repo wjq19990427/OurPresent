@@ -30,7 +30,7 @@
   },
   "compileType": "miniprogram",
   "libVersion": "3.6.0",
-  "appid": "wx87b7d11564f1ddad",
+  "appid": "YOUR_APPID_HERE",
   "projectname": "OurPresent",
   "miniprogramRoot": "dist/",
   "srcMiniprogramRoot": "miniprogram/",
